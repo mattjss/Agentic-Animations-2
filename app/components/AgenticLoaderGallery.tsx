@@ -8,7 +8,7 @@ export default function AgenticLoaderGallery() {
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(4, 1fr)",
-        gap: "40px 48px",
+        gap: "36px 44px",
       }}
     >
       {AGENT_STEPS.map((step) => (
