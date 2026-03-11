@@ -11,28 +11,43 @@ function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
 
   const handleCopy = async () => {
+    if (copyState === "copied") return;
     const snippet = generateSnippet(step, controls);
     await navigator.clipboard.writeText(snippet);
     setCopyState("copied");
     setTimeout(() => setCopyState("idle"), 1800);
   };
 
+  const isCopied = copyState === "copied";
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={handleCopy}
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         gap: 10,
+        cursor: isCopied ? "default" : "pointer",
       }}
     >
-      <PixelIcon stepId={step.id} controls={controls} />
+      {/* Animation — subtle ring on hover */}
+      <div style={{
+        borderRadius: 6,
+        padding: 8,
+        outline: hovered && !isCopied ? "1px solid #2a2a2a" : "1px solid transparent",
+        transition: "outline-color 180ms ease",
+      }}>
+        <PixelIcon stepId={step.id} controls={controls} />
+      </div>
 
-      {/* Name — always centered, never shifts */}
-      <span
-        style={{
+      {/* Label / copy — crossfade in same slot */}
+      <div style={{ position: "relative", height: 18, width: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+
+        {/* Label */}
+        <span style={{
           fontFamily: monoFont,
           fontSize: 9,
           fontWeight: 400,
@@ -40,36 +55,33 @@ function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
           textTransform: "uppercase",
           color: "#cfcfcf",
           whiteSpace: "nowrap",
-        }}
-      >
-        {step.label}
-      </span>
+          position: "absolute",
+          opacity: hovered ? 0 : 1,
+          transform: hovered ? "translateY(-3px)" : "translateY(0)",
+          transition: "opacity 180ms ease, transform 180ms ease",
+          pointerEvents: "none",
+        }}>
+          {step.label}
+        </span>
 
-      {/* Copy CTA — fixed height slot so layout never jumps */}
-      <div style={{ height: 18 }}>
-        <button
-          onClick={handleCopy}
-          style={{
-            fontFamily: monoFont,
-            fontSize: 8,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            background: "none",
-            border: "1px solid",
-            borderColor: copyState === "copied" ? "#6ee7b7" : "#2a2a2a",
-            borderRadius: 3,
-            padding: "3px 7px",
-            cursor: "pointer",
-            color: copyState === "copied" ? "#6ee7b7" : "#444",
-            opacity: hovered ? 1 : 0,
-            transition: "opacity 150ms, color 150ms, border-color 150ms",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {copyState === "copied" ? (
+        {/* Copy state */}
+        <span style={{
+          fontFamily: monoFont,
+          fontSize: 8,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          whiteSpace: "nowrap",
+          position: "absolute",
+          color: isCopied ? "#6ee7b7" : "#888",
+          opacity: hovered ? 1 : 0,
+          transform: hovered ? "translateY(0)" : "translateY(3px)",
+          transition: "opacity 180ms ease, transform 180ms ease, color 150ms",
+          pointerEvents: "none",
+        }}>
+          {isCopied ? (
             <>
               <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
                 <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
@@ -85,7 +97,7 @@ function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
               copy
             </>
           )}
-        </button>
+        </span>
       </div>
     </div>
   );
@@ -100,7 +112,7 @@ export default function AgenticLoaderGallery() {
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "52px 44px",
+          gap: "64px 48px",
         }}
       >
         {AGENT_STEPS.map((step) => (
