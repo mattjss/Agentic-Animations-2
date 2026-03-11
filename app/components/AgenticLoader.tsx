@@ -1,314 +1,495 @@
 "use client";
 
-// Agentic pixel loader library: 16 thoughtful 6x6 pixel animation patterns in a 24x24 frame.
+import { useEffect, useRef, useState } from "react";
 
-import { useEffect, useState } from "react";
-import { motion } from "motion/react";
+// 24×24px frame — 4×4 grid of 6×6px cells
+const G = 4;
+const CELL = 6;
 
-const GRID_SIZE = 6; // 6x6 grid
-const CELL_COUNT = GRID_SIZE * GRID_SIZE;
+// 0=off  1=0.08  2=0.18  3=0.32  4=0.50  5=0.68  6=0.84  7=1.0
+const O = [0, 0.08, 0.18, 0.32, 0.50, 0.68, 0.84, 1.0];
+const o = (v: number) => O[Math.min(Math.max(v, 0), 7)];
 
-type AnimationMode =
-  | "orbit"
-  | "snake"
-  | "rowScan"
-  | "colScan"
-  | "breath"
-  | "pulse"
-  | "corners";
+function f(rows: number[][]): number[] {
+  return rows.flat().map(v => o(v));
+}
 
-export type PatternConfig = {
-  id: number;
+export type AgentAnim = {
+  id: string;
   label: string;
-  mode: AnimationMode;
-  path?: number[]; // for orbit/snake
-  mask?: number[]; // for breath/pulse
-  row?: number; // for rowScan
-  col?: number; // for colScan
-  corners?: number[]; // for corners
-  syncCorners?: boolean; // corners mode variant
+  fps: number;
+  frames: number[][];
 };
 
-// 6x6 grid indices (0–35), row-major.
-export const STAGE_CONFIG: PatternConfig[] = [
-  // 1. Solo Center
+// ─── Design rules ────────────────────────────────────────────────────────────
+// Every animation follows the same formula as Reasoning + Indexing:
+//   • 1–3 bright focal pixels (opacity 7) at any given time
+//   • Clear geometric motion path (orbit, line, spiral, bounce…)
+//   • Opacity trail: 7 → 5 → 3 → 1 → 0 behind the head
+//   • Negative space: most cells are 0 or very dim (1–2)
+//   • No full rows/columns lit uniformly — that reads as a bar, not a pixel
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const AGENT_STEPS: AgentAnim[] = [
+
+  // 1. REASONING ── two bright dots orbit 180° apart (KEEP — reference quality)
   {
-    id: 0,
-    label: "SOLO CENTER",
-    mode: "orbit",
-    path: [14, 15, 21, 20], // small square around center
+    id: "reasoning",
+    label: "REASONING",
+    fps: 9,
+    frames: (() => {
+      const pos: [number,number][] = [
+        [0,1],[0,2],[1,3],[2,3],[3,2],[3,1],[2,0],[1,0],
+      ];
+      return pos.map((_, i) => {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        g[1][1] = 1; g[1][2] = 1; g[2][1] = 1; g[2][2] = 1;
+        const ta2 = pos[(i-2+8)%8]; g[ta2[0]][ta2[1]] = 1;
+        const tb2 = pos[(i+2)%8];   g[tb2[0]][tb2[1]] = 1;
+        const ta1 = pos[(i-1+8)%8]; g[ta1[0]][ta1[1]] = 3;
+        const tb1 = pos[(i+3)%8];   g[tb1[0]][tb1[1]] = 3;
+        const a = pos[i];            g[a[0]][a[1]] = 7;
+        const b = pos[(i+4)%8];      g[b[0]][b[1]] = 7;
+        return f(g);
+      });
+    })(),
   },
-  // 2. Solo TL
+
+  // 2. INDEXING ── single dot walks every cell, fading ghost trail (KEEP)
   {
-    id: 1,
-    label: "SOLO TL",
-    mode: "orbit",
-    path: [1, 2, 8, 7],
+    id: "indexing",
+    label: "INDEXING",
+    fps: 12,
+    frames: (() => {
+      const path: [number,number][] = [];
+      for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++)
+          path.push([r, c]);
+      return path.map((_, i) => {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        for (let k = 0; k < i; k++) {
+          const age = i - k;
+          const v = age === 1 ? 4 : age === 2 ? 2 : age === 3 ? 1 : 0;
+          if (v > 0) g[path[k][0]][path[k][1]] = v;
+        }
+        g[path[i][0]][path[i][1]] = 7;
+        return f(g);
+      });
+    })(),
   },
-  // 3. Solo BR
+
+  // 3. THINKING ── 3 dots flicker independently, each on its own slow pulse
+  // Each dot has its own position and phase — they never sync
   {
-    id: 2,
-    label: "SOLO BR",
-    mode: "orbit",
-    path: [33, 34, 28, 27],
+    id: "thinking",
+    label: "THINKING",
+    fps: 9,
+    frames: (() => {
+      // Three fixed positions, each cycling through opacity independently
+      const dots: [number,number][] = [[0,0],[1,3],[3,1]];
+      const phases = [0, 3, 6]; // offset phases
+      const cycle = [7,6,4,2,1,2,4,6]; // brightness wave
+      return Array.from({length: 12}, (_, i) =>
+        f(Array.from({length:4}, (__, r) =>
+          Array.from({length:4}, (___, c) => {
+            const di = dots.findIndex(([dr,dc]) => dr===r && dc===c);
+            if (di === -1) return 0;
+            return cycle[(i + phases[di]) % cycle.length];
+          })
+        ))
+      );
+    })(),
   },
-  // 4. Line H-Top
+
+  // 4. PROCESSING ── snake on Z-path, 3-pixel tail, clean and fast
   {
-    id: 3,
-    label: "LINE H-TOP",
-    mode: "rowScan",
-    row: 1,
+    id: "processing",
+    label: "PROCESSING",
+    fps: 11,
+    frames: (() => {
+      const path: [number,number][] = [
+        [0,0],[0,1],[0,2],[0,3],
+        [1,3],[1,2],[1,1],[1,0],
+        [2,0],[2,1],[2,2],[2,3],
+        [3,3],[3,2],[3,1],[3,0],
+      ];
+      return path.map((_, i) => {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        const s = (k: number, v: number) => {
+          const p = path[(i-k+16)%16];
+          g[p[0]][p[1]] = Math.max(g[p[0]][p[1]], v);
+        };
+        s(3,1); s(2,2); s(1,4); s(0,7);
+        return f(g);
+      });
+    })(),
   },
-  // 5. Line H-Mid
+
+  // 5. SCANNING ── single bright dot sweeps left→right across one row,
+  // then drops to next row. Like a read-head.
   {
-    id: 4,
-    label: "LINE H-MID",
-    mode: "rowScan",
-    row: 3,
+    id: "scanning",
+    label: "SCANNING",
+    fps: 10,
+    frames: (() => {
+      const frames: number[][] = [];
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+          // dim visited rows
+          for (let pr = 0; pr < r; pr++)
+            for (let pc = 0; pc < 4; pc++) g[pr][pc] = 1;
+          // trail in current row
+          if (c > 0) g[r][c-1] = 3;
+          if (c > 1) g[r][c-2] = 1;
+          g[r][c] = 7;
+          frames.push(f(g));
+        }
+      }
+      return frames;
+    })(),
   },
-  // 6. Line H-Bot
+
+  // 6. ROUTING ── single bright dot travels the diagonal TL→BR,
+  // then resets. Clean line, 3-step trail.
   {
-    id: 5,
-    label: "LINE H-BOT",
-    mode: "rowScan",
-    row: 4,
+    id: "routing",
+    label: "ROUTING",
+    fps: 10,
+    frames: (() => {
+      // diagonal path: (0,0)→(1,1)→(2,2)→(3,3), then off-grid fade
+      const path: [number,number][] = [
+        [0,0],[1,1],[2,2],[3,3],
+      ];
+      const frames: number[][] = [];
+      for (let i = 0; i < path.length; i++) {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        if (i >= 3) g[path[i-3][0]][path[i-3][1]] = 1;
+        if (i >= 2) g[path[i-2][0]][path[i-2][1]] = 2;
+        if (i >= 1) g[path[i-1][0]][path[i-1][1]] = 4;
+        g[path[i][0]][path[i][1]] = 7;
+        frames.push(f(g));
+      }
+      // fade out
+      frames.push(f([[0,0,0,0],[0,0,0,0],[0,0,0,0],[2,0,0,0]]));
+      frames.push(f([[0,0,0,0],[0,0,0,0],[0,0,0,0],[1,0,0,0]]));
+      frames.push(f([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]));
+      return frames;
+    })(),
   },
-  // 7. Line V-Left
+
+  // 7. PARSING ── dot spirals inward clockwise: outer ring → inner ring → center
   {
-    id: 6,
-    label: "LINE V-LEFT",
-    mode: "colScan",
-    col: 1,
+    id: "parsing",
+    label: "PARSING",
+    fps: 10,
+    frames: (() => {
+      const path: [number,number][] = [
+        [0,0],[0,1],[0,2],[0,3],
+        [1,3],[2,3],[3,3],
+        [3,2],[3,1],[3,0],
+        [2,0],[1,0],
+        [1,1],[1,2],
+        [2,2],[2,1],
+      ];
+      return path.map((_, i) => {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        const s = (k: number, v: number) => {
+          const p = path[(i-k+path.length)%path.length];
+          g[p[0]][p[1]] = v;
+        };
+        s(4,1); s(3,2); s(2,3); s(1,5); s(0,7);
+        return f(g);
+      });
+    })(),
   },
-  // 8. Line V-Mid
+
+  // 8. DRAFTING ── dot moves along top edge L→R, then right edge T→B,
+  // then bottom edge R→L, then left edge B→T — a perimeter orbit
+  // but only ONE dot, no trail duplication with PARSING
   {
-    id: 7,
-    label: "LINE V-MID",
-    mode: "colScan",
-    col: 3,
+    id: "drafting",
+    label: "DRAFTING",
+    fps: 10,
+    frames: (() => {
+      const path: [number,number][] = [
+        [0,0],[0,1],[0,2],[0,3],
+        [1,3],[2,3],[3,3],
+        [3,2],[3,1],[3,0],
+        [2,0],[1,0],
+      ];
+      return path.map((_, i) => {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        const s = (k: number, v: number) => {
+          const p = path[(i-k+path.length)%path.length];
+          g[p[0]][p[1]] = Math.max(g[p[0]][p[1]], v);
+        };
+        s(3,1); s(2,2); s(1,4); s(0,7);
+        return f(g);
+      });
+    })(),
   },
-  // 9. Line V-Right
+
+  // 9. LINKING ── two dots start at opposite corners and swap positions,
+  // passing through center. They cross mid-frame.
   {
-    id: 8,
-    label: "LINE V-RIGHT",
-    mode: "colScan",
-    col: 4,
+    id: "linking",
+    label: "LINKING",
+    fps: 8,
+    frames: (() => {
+      // dot A: TL→BR diagonal
+      // dot B: TR→BL diagonal
+      const pathA: [number,number][] = [[0,0],[1,1],[2,2],[3,3],[2,2],[1,1]];
+      const pathB: [number,number][] = [[0,3],[1,2],[2,1],[3,0],[2,1],[1,2]];
+      return pathA.map((_, i) => {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        // trails
+        if (i>0) { g[pathA[i-1][0]][pathA[i-1][1]] = Math.max(g[pathA[i-1][0]][pathA[i-1][1]],3); }
+        if (i>0) { g[pathB[i-1][0]][pathB[i-1][1]] = Math.max(g[pathB[i-1][0]][pathB[i-1][1]],3); }
+        if (i>1) { g[pathA[i-2][0]][pathA[i-2][1]] = Math.max(g[pathA[i-2][0]][pathA[i-2][1]],1); }
+        if (i>1) { g[pathB[i-2][0]][pathB[i-2][1]] = Math.max(g[pathB[i-2][0]][pathB[i-2][1]],1); }
+        // heads
+        g[pathA[i][0]][pathA[i][1]] = Math.max(g[pathA[i][0]][pathA[i][1]], 7);
+        g[pathB[i][0]][pathB[i][1]] = Math.max(g[pathB[i][0]][pathB[i][1]], 7);
+        return f(g);
+      });
+    })(),
   },
-  // 10. Line Diag-1
+
+  // 10. COMPILING ── dot bounces vertically in col 1, then col 2, col 3, col 4
+  // Like a progress indicator moving column by column
   {
-    id: 9,
-    label: "LINE DIAG-1",
-    mode: "snake",
-    path: [0, 7, 14, 21, 28, 35],
+    id: "compiling",
+    label: "COMPILING",
+    fps: 10,
+    frames: (() => {
+      const frames: number[][] = [];
+      for (let col = 0; col < 4; col++) {
+        // bounce: 0→3→0
+        const bounce = [0,1,2,3,2,1];
+        for (const row of bounce) {
+          const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+          // ghost: completed columns
+          for (let pc = 0; pc < col; pc++)
+            for (let pr = 0; pr < 4; pr++) g[pr][pc] = 1;
+          // trail
+          const prev = row > 0 ? row - 1 : null;
+          const prev2 = row > 1 ? row - 2 : null;
+          if (prev !== null) g[prev][col] = 3;
+          if (prev2 !== null) g[prev2][col] = 1;
+          g[row][col] = 7;
+          frames.push(f(g));
+        }
+      }
+      return frames;
+    })(),
   },
-  // 11. Line Diag-2
+
+  // 11. MAPPING ── dot traces the anti-diagonal BR→TL, clean and minimal
   {
-    id: 10,
-    label: "LINE DIAG-2",
-    mode: "snake",
-    path: [30, 25, 20, 15, 10, 5],
+    id: "mapping",
+    label: "MAPPING",
+    fps: 10,
+    frames: (() => {
+      const path: [number,number][] = [
+        [3,3],[2,2],[1,1],[0,0],
+      ];
+      const frames: number[][] = [];
+      for (let i = 0; i < path.length; i++) {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        if (i >= 3) g[path[i-3][0]][path[i-3][1]] = 1;
+        if (i >= 2) g[path[i-2][0]][path[i-2][1]] = 2;
+        if (i >= 1) g[path[i-1][0]][path[i-1][1]] = 4;
+        g[path[i][0]][path[i][1]] = 7;
+        frames.push(f(g));
+      }
+      frames.push(f([[1,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]));
+      frames.push(f([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]));
+      return frames;
+    })(),
   },
-  // 12. Corners Only
+
+  // 12. QUERYING ── dot drops down col 0, then col 1, col 2, col 3 — read-head
   {
-    id: 11,
-    label: "CORNERS ONLY",
-    mode: "corners",
-    corners: [0, 5, 30, 35],
-    syncCorners: false,
+    id: "querying",
+    label: "QUERYING",
+    fps: 10,
+    frames: (() => {
+      const frames: number[][] = [];
+      for (let col = 0; col < 4; col++) {
+        for (let row = 0; row < 4; row++) {
+          const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+          for (let pc = 0; pc < col; pc++)
+            for (let pr = 0; pr < 4; pr++) g[pr][pc] = 1;
+          if (row > 1) g[row-2][col] = 1;
+          if (row > 0) g[row-1][col] = 3;
+          g[row][col] = 7;
+          frames.push(f(g));
+        }
+      }
+      return frames;
+    })(),
   },
-  // 13. Corners Sync
+
+  // 13. SYNCING ── two dots start at opposite sides of the same row and
+  // move toward each other, meet at center, then separate to next row
   {
-    id: 12,
-    label: "CORNERS SYNC",
-    mode: "corners",
-    corners: [0, 5, 30, 35],
-    syncCorners: true,
+    id: "syncing",
+    label: "SYNCING",
+    fps: 9,
+    frames: (() => {
+      const frames: number[][] = [];
+      for (let row = 0; row < 4; row++) {
+        // approach: col 0 and col 3 move inward
+        const steps: [number,number][] = [[0,3],[1,2],[1,2],[2,1],[2,1],[3,0]];
+        for (const [lc, rc] of steps) {
+          const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+          // dim visited rows
+          for (let pr = 0; pr < row; pr++)
+            for (let pc = 0; pc < 4; pc++) g[pr][pc] = 1;
+          g[row][lc] = 7;
+          if (lc !== rc) g[row][rc] = 7;
+          else { // meeting point — flash brighter
+            g[row][lc] = 7;
+            if (lc > 0) g[row][lc-1] = 2;
+            if (rc < 3) g[row][rc+1] = 2;
+          }
+          frames.push(f(g));
+        }
+      }
+      return frames;
+    })(),
   },
-  // 14. Plus Hollow
+
+  // 14. PATCHING ── checkerboard: two interlocked dots pulse in opposition
+  // A is bright when B is dim and vice versa — clean alternating rhythm
   {
-    id: 13,
-    label: "PLUS HOLLOW",
-    mode: "breath",
-    // plus shape leaving very center slightly dimmer by mask choice
-    mask: [
-      7, 13, 19, 25, // vertical bar
-      16, 17, 18, // horizontal bar (row 2)
-      11, 23, // short ends
-    ],
+    id: "patching",
+    label: "PATCHING",
+    fps: 8,
+    frames: (() => {
+      // Only 4 pixels ever lit: the 4 "A" cells of a checkerboard
+      // They pulse while the 4 "B" cells pulse inversely
+      const cycleA = [7,6,5,4,3,2,1,2,3,4,5,6];
+      const cycleB = [1,2,3,4,5,6,7,6,5,4,3,2];
+      return Array.from({length: 12}, (_, i) =>
+        f([
+          [cycleA[i], cycleB[i], cycleA[i], cycleB[i]],
+          [cycleB[i], cycleA[i], cycleB[i], cycleA[i]],
+          [cycleA[i], cycleB[i], cycleA[i], cycleB[i]],
+          [cycleB[i], cycleA[i], cycleB[i], cycleA[i]],
+        ])
+      );
+    })(),
   },
-  // 15. Duo H
+
+  // 15. STAGING ── center 2×2 pulses; as it dims, a ring of 4 corner dots brightens
+  // Clean inverse relationship between core and ring
   {
-    id: 14,
-    label: "DUO H",
-    mode: "pulse",
-    // two horizontal bands
-    mask: [
-      6, 7, 8, 9, 10, 11, // row 1
-      24, 25, 26, 27, 28, 29, // row 4
-    ],
+    id: "staging",
+    label: "STAGING",
+    fps: 7,
+    frames: (() => {
+      // core = [1][1],[1][2],[2][1],[2][2]
+      // ring = [0][0],[0][3],[3][0],[3][3]
+      const coreV = [7,6,5,4,3,2,1,2,3,4,5,6];
+      const ringV = [1,2,3,4,5,6,7,6,5,4,3,2];
+      return Array.from({length: 12}, (_, i) => {
+        const cv = coreV[i], rv = ringV[i];
+        return f([
+          [rv, 0, 0, rv],
+          [0, cv, cv, 0],
+          [0, cv, cv, 0],
+          [rv, 0, 0, rv],
+        ]);
+      });
+    })(),
   },
-  // 16. Duo V
+
+  // 16. RESOLVING ── single dot traces a figure-8 path through the grid
   {
-    id: 15,
-    label: "DUO V",
-    mode: "pulse",
-    // two vertical bands
-    mask: [
-      1, 7, 13, 19, 25, 31, // col 1
-      4, 10, 16, 22, 28, 34, // col 4
-    ],
+    id: "resolving",
+    label: "RESOLVING",
+    fps: 10,
+    frames: (() => {
+      // Figure-8: top loop CW then bottom loop CW
+      const path: [number,number][] = [
+        [0,1],[0,2],        // top edge
+        [1,3],[0,3],        // top-right
+        [0,2],[0,1],        // back across top
+        [1,0],[0,0],        // top-left
+        [1,1],[1,2],        // center cross
+        [2,1],[2,2],        // center cross lower
+        [3,1],[3,0],        // bottom-left
+        [2,0],[3,0],
+        [3,1],[3,2],        // bottom edge
+        [2,3],[3,3],        // bottom-right
+        [3,2],[3,1],
+        [2,2],[2,1],        // back to center
+      ];
+      return path.map((_, i) => {
+        const g = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        const s = (k: number, v: number) => {
+          const p = path[(i-k+path.length)%path.length];
+          g[p[0]][p[1]] = Math.max(g[p[0]][p[1]], v);
+        };
+        s(3,1); s(2,2); s(1,4); s(0,7);
+        return f(g);
+      });
+    })(),
   },
 ];
 
-export interface PixelStageIconProps {
-  stageKey: number;
-  color?: string; // default white
-  speed?: number; // global speed multiplier
+// ─── PixelIcon ──────────────────────────────────────────────────────────────
+export interface PixelIconProps {
+  stepId: string;
+  speed?: number;
 }
 
-export function PixelStageIcon({
-  stageKey,
-  color = "#ffffff",
-  speed = 1,
-}: PixelStageIconProps) {
-  const pattern = STAGE_CONFIG[stageKey % STAGE_CONFIG.length];
-  const [phase, setPhase] = useState(0);
+export function PixelIcon({ stepId, speed = 1 }: PixelIconProps) {
+  const step = AGENT_STEPS.find((s) => s.id === stepId) ?? AGENT_STEPS[0];
+  const [frameIdx, setFrameIdx] = useState(0);
+  const ref = useRef(0);
+
+  useEffect(() => { ref.current = 0; setFrameIdx(0); }, [stepId]);
 
   useEffect(() => {
-    const intervalMs = 100 / speed; // ~10fps scaled
+    const ms = Math.round(1000 / (step.fps * speed));
     const id = setInterval(() => {
-      setPhase((p) => (p + 1) % 240);
-    }, intervalMs);
+      ref.current = (ref.current + 1) % step.frames.length;
+      setFrameIdx(ref.current);
+    }, ms);
     return () => clearInterval(id);
-  }, [speed]);
+  }, [step, speed]);
 
-  const isIn = (idx: number, list?: number[]) =>
-    list ? list.includes(idx) : false;
-
-  const intensityFor = (index: number): number => {
-    const t = phase;
-
-    switch (pattern.mode) {
-      case "orbit": {
-        const path = pattern.path ?? [];
-        if (!path.length) return 0;
-        const head = t % path.length;
-        const prev = (head - 1 + path.length) % path.length;
-        const idx = path.indexOf(index);
-        if (idx === head) return 1;
-        if (idx === prev) return 0.4;
-        return 0;
-      }
-
-      case "snake": {
-        const path = pattern.path ?? [];
-        if (!path.length) return 0;
-        const head = t % path.length;
-        const tail1 = (head - 1 + path.length) % path.length;
-        const tail2 = (head - 2 + path.length) % path.length;
-        const idx = path.indexOf(index);
-        if (idx === head) return 1;
-        if (idx === tail1) return 0.6;
-        if (idx === tail2) return 0.3;
-        return 0;
-      }
-
-      case "rowScan": {
-        const row = pattern.row ?? 0;
-        const r = Math.floor(index / GRID_SIZE);
-        if (r !== row) return 0;
-        const offset = (t / 8) % GRID_SIZE;
-        const activeCol = Math.floor(offset);
-        const c = index % GRID_SIZE;
-        if (c === activeCol) return 1;
-        if (Math.abs(c - activeCol) === 1) return 0.4;
-        return 0.15;
-      }
-
-      case "colScan": {
-        const col = pattern.col ?? 0;
-        const c = index % GRID_SIZE;
-        if (c !== col) return 0;
-        const offset = (t / 8) % GRID_SIZE;
-        const activeRow = Math.floor(offset);
-        const r = Math.floor(index / GRID_SIZE);
-        if (r === activeRow) return 1;
-        if (Math.abs(r - activeRow) === 1) return 0.4;
-        return 0.15;
-      }
-
-      case "breath": {
-        const mask = pattern.mask ?? [];
-        if (!isIn(index, mask)) return 0;
-        const cycle = Math.sin((t / 60) * Math.PI * 2); // -1..1
-        return 0.3 + 0.7 * ((cycle + 1) / 2); // 0.3..1
-      }
-
-      case "pulse": {
-        const mask = pattern.mask ?? [];
-        if (!isIn(index, mask)) return 0;
-        const segment = Math.floor((t / 20) % 4);
-        const strong = segment === 0 || segment === 2;
-        return strong ? 1 : 0.3;
-      }
-
-      case "corners": {
-        const corners = pattern.corners ?? [0, 5, 30, 35];
-        const period = 40;
-        const local = t % period;
-        if (pattern.syncCorners) {
-          // all corners pulsing together
-          if (!corners.includes(index)) return 0;
-          const cycle = Math.sin((local / period) * Math.PI * 2);
-          return 0.4 + 0.6 * ((cycle + 1) / 2);
-        }
-        // one corner at a time
-        const cornerIndex = Math.floor((local / period) * corners.length);
-        return index === corners[cornerIndex] ? 1 : 0;
-      }
-
-      default:
-        return 0;
-    }
-  };
+  const cells = step.frames[frameIdx] ?? step.frames[0];
 
   return (
-    <motion.div
-      className="w-6 h-6 flex items-center justify-center"
-      animate={{ scale: [1, 1.04, 1] }}
-      transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+    <div
+      style={{
+        width: G * CELL,
+        height: G * CELL,
+        display: "grid",
+        gridTemplateColumns: `repeat(${G}, ${CELL}px)`,
+        gridTemplateRows: `repeat(${G}, ${CELL}px)`,
+        backgroundColor: "#111111",
+        flexShrink: 0,
+      }}
     >
-      <div
-        className="grid grid-cols-6 grid-rows-6"
-        style={{ width: 24, height: 24 }}
-      >
-        {Array.from({ length: CELL_COUNT }).map((_, i) => {
-          const opacity = intensityFor(i);
-          return (
-            <div
-              key={i}
-              style={{
-                width: 4,
-                height: 4,
-                backgroundColor: color,
-                opacity,
-                transition: "opacity 120ms ease-out",
-              }}
-            />
-          );
-        })}
-      </div>
-    </motion.div>
-  );
-}
-
-export default function AgenticLoader() {
-  const pattern = STAGE_CONFIG[0];
-  return (
-    <div className="flex flex-col items-center gap-3 text-slate-100">
-      <PixelStageIcon stageKey={0} />
-      <p className="text-[11px] text-slate-400">{pattern.label}</p>
+      {cells.map((opacity, i) => (
+        <div
+          key={i}
+          style={{
+            width: CELL,
+            height: CELL,
+            backgroundColor: "#ffffff",
+            opacity,
+            transition: "opacity 80ms linear",
+          }}
+        />
+      ))}
     </div>
   );
 }
 
+export default PixelIcon;

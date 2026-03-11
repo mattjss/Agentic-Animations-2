@@ -1,28 +1,42 @@
 "use client";
 
-// 4x4 grid of agentic pixel animations with labels under each.
-
-import { STAGE_CONFIG, PixelStageIcon } from "./AgenticLoader";
+import { AGENT_STEPS, PixelIcon } from "./AgenticLoader";
 
 export default function AgenticLoaderGallery() {
-  const items = STAGE_CONFIG.slice(0, 16); // 4 x 4 grid
-
   return (
-    <div className="flex flex-col items-center gap-10 text-slate-100">
-      <div className="grid grid-cols-4 gap-12">
-        {items.map((pattern, index) => (
-          <div
-            key={pattern.id}
-            className="flex flex-col items-center text-center"
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: "40px 48px",
+      }}
+    >
+      {AGENT_STEPS.map((step) => (
+        <div
+          key={step.id}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <PixelIcon stepId={step.id} />
+          <span
+            style={{
+              fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+              fontSize: 9,
+              fontWeight: 400,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "#cfcfcf",
+              whiteSpace: "nowrap",
+            }}
           >
-            <PixelStageIcon stageKey={index} color="#ffffff" />
-            <p className="mt-2 text-[10px] tracking-[0.18em] uppercase text-slate-400 max-w-[120px] leading-snug">
-              {pattern.label}
-            </p>
-          </div>
-        ))}
-      </div>
+            {step.label}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
-
