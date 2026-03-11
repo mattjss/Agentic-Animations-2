@@ -55,7 +55,7 @@ const DELAYS: Record<string, (step: number) => number[]> = {
   "rain":         s => d([0,4,2, 1,5,3, 2,6,4], s),   // each column cascades top→bottom, columns stagger
   "zigzag":       s => d([0,8,6, 1,7,5, 2,8,4], s),   // vertical snake: col0 top→bot, col1 bot→top, col2 top→bot
   "snake":        s => d([0,1,2, 5,4,3, 6,7,8], s),   // Z-path boustrophedon
-  "fade":         s => d([0,2,1, 3,1,2, 1,0,3], s),   // organic breath: cells shimmer slightly out of phase
+  "fade":         s => d([0,0,0, 0,0,0, 0,0,0], s),   // true unified breath — custom keyframe handles the shape
   "scatter":      s => d([0,5,2, 7,3,8, 1,6,4], s),   // pseudo-random spread
   "fill":         s => d([0,1,2, 3,4,5, 6,7,8], s),   // reading-order sequential fill
   "bounce":       s => d([0,2,4, 5,3,1, 6,8,10], s),  // rows alternate direction: row0 L→R, row1 R→L, row2 L→R — woven reversal
@@ -115,7 +115,7 @@ export const AGENT_STEPS: AgentAnim[] = [
   css("bounce",      "BOUNCE",      1400, 70,  { easing: "ease-in-out" }),
 
   // Rhythm
-  css("fade",        "FADE",        1800, 60,  { easing: "ease-in-out" }),
+  css("fade",        "FADE",        2600, 0,   { easing: "ease-in", minOpacity: 0.0, maxOpacity: 1 }),
   css("scatter",     "SCATTER",     800,  75,  { easing: "ease-in-out" }),
   css("spiral-out",  "SPIRAL-OUT",  1200, 90,  { easing: "ease-out" }),
   css("rain",        "RAIN",        500,  90,  { easing: "ease-in", minOpacity: 0.04, maxOpacity: 1 }),
@@ -124,6 +124,7 @@ export const AGENT_STEPS: AgentAnim[] = [
 
 // ─── CSS keyframe injection ───────────────────────────────────────────────────
 const injectedKeyframes = new Set<string>();
+
 function ensureKeyframe(minOp: number, maxOp: number): string {
   const key = `px_${Math.round(minOp * 100)}_${Math.round(maxOp * 100)}`;
   if (injectedKeyframes.has(key)) return key;
@@ -133,6 +134,26 @@ function ensureKeyframe(minOp: number, maxOp: number): string {
     @keyframes ${key} {
       0%   { opacity: ${minOp}; }
       50%  { opacity: ${maxOp}; }
+      100% { opacity: ${minOp}; }
+    }
+  `;
+  document.head.appendChild(style);
+  injectedKeyframes.add(key);
+  return key;
+}
+
+// Fade-specific keyframe: slow rise → long hold at peak → sharp drop → rest in dark
+function ensureFadeKeyframe(minOp: number, maxOp: number): string {
+  const key = `px_fade_${Math.round(minOp * 100)}_${Math.round(maxOp * 100)}`;
+  if (injectedKeyframes.has(key)) return key;
+  if (typeof document === "undefined") return key;
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes ${key} {
+      0%   { opacity: ${minOp}; }
+      30%  { opacity: ${maxOp}; }
+      60%  { opacity: ${maxOp}; }
+      80%  { opacity: ${minOp}; }
       100% { opacity: ${minOp}; }
     }
   `;
@@ -156,18 +177,19 @@ function CssPixelIcon({ anim, controls }: { anim: CssAnim; controls: Controls })
   const maxOp = controls.opacity;
   const duration = Math.round(anim.duration / controls.speed);
   const cellSize = controls.cellSize;
-  const gap = controls.gap;
-  const borderRadius = controls.shape === "round" ? "50%" : 2;
   const isGradient = controls.colorMode === "gradient";
   const glow = controls.glow;
 
   const [keyframe, setKeyframe] = useState("");
 
   useEffect(() => {
-    setKeyframe(ensureKeyframe(minOp, maxOp));
-  }, [maxOp]);
+    const kf = anim.id === "fade"
+      ? ensureFadeKeyframe(minOp, maxOp)
+      : ensureKeyframe(minOp, maxOp);
+    setKeyframe(kf);
+  }, [anim.id, maxOp]);
 
-  const size = anim.cols * cellSize + (anim.cols - 1) * gap;
+  const size = anim.cols * cellSize;
   const gc = glowColor(controls.color, isGradient);
 
   return (
@@ -191,7 +213,6 @@ function CssPixelIcon({ anim, controls }: { anim: CssAnim; controls: Controls })
           display: "grid",
           gridTemplateColumns: `repeat(${anim.cols}, ${cellSize}px)`,
           gridTemplateRows: `repeat(${anim.cols}, ${cellSize}px)`,
-          gap: `${gap}px`,
         }}
       >
         {anim.delays.map((delay, i) => (
@@ -200,7 +221,6 @@ function CssPixelIcon({ anim, controls }: { anim: CssAnim; controls: Controls })
             style={{
               width: cellSize,
               height: cellSize,
-              borderRadius,
               backgroundColor: isGradient ? "#ffffff" : controls.color,
               mixBlendMode: isGradient ? ("screen" as React.CSSProperties["mixBlendMode"]) : undefined,
               opacity: minOp,
@@ -236,13 +256,11 @@ function FramePixelIcon({ anim, controls }: { anim: FrameAnim; controls: Control
 
   const cells = anim.frames[frameIdx] ?? anim.frames[0];
   const cellSize = controls.cellSize;
-  const gap = controls.gap;
-  const borderRadius = controls.shape === "round" ? "50%" : 2;
   const G = 4;
   const isGradient = controls.colorMode === "gradient";
   const gc = glowColor(controls.color, isGradient);
   const glow = controls.glow;
-  const size = G * cellSize + (G - 1) * gap;
+  const size = G * cellSize;
 
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0, isolation: isGradient ? "isolate" : undefined }}>
@@ -257,7 +275,6 @@ function FramePixelIcon({ anim, controls }: { anim: FrameAnim; controls: Control
           display: "grid",
           gridTemplateColumns: `repeat(${G}, ${cellSize}px)`,
           gridTemplateRows: `repeat(${G}, ${cellSize}px)`,
-          gap: `${gap}px`,
         }}
       >
         {cells.map((opacity, i) => (
@@ -266,7 +283,6 @@ function FramePixelIcon({ anim, controls }: { anim: FrameAnim; controls: Control
             style={{
               width: cellSize,
               height: cellSize,
-              borderRadius,
               backgroundColor: isGradient ? "#ffffff" : controls.color,
               mixBlendMode: isGradient ? ("screen" as React.CSSProperties["mixBlendMode"]) : undefined,
               opacity: opacity * controls.opacity,
@@ -280,6 +296,55 @@ function FramePixelIcon({ anim, controls }: { anim: FrameAnim; controls: Control
       </div>
     </div>
   );
+}
+
+// ─── Snippet generator ───────────────────────────────────────────────────────
+export function generateSnippet(anim: AgentAnim, controls: Controls): string {
+  if (anim.kind !== "css") return "/* frame-based animation — not exportable as CSS */";
+
+  const cellSize = controls.cellSize;
+  const color = controls.colorMode === "gradient" ? "#ffffff" : controls.color;
+  const minOp = 0.06;
+  const maxOp = controls.opacity;
+  const duration = Math.round(anim.duration / controls.speed);
+  const easing = anim.easing ?? "ease-in-out";
+  const size = anim.cols * cellSize;
+  const glowVal = controls.glow > 0
+    ? `box-shadow: 0 0 ${controls.glow}px ${Math.round(controls.glow * 0.6)}px ${color};`
+    : "";
+
+  const cells = anim.delays
+    .map((delay, i) =>
+      `  <div class="cell" style="animation-delay:${delay}ms"></div>`
+    )
+    .join("\n");
+
+  return `<!-- ${anim.label} loader -->
+<style>
+  .loader-${anim.id} {
+    display: grid;
+    grid-template-columns: repeat(${anim.cols}, ${cellSize}px);
+    grid-template-rows: repeat(${anim.cols}, ${cellSize}px);
+    width: ${size}px;
+    height: ${size}px;
+  }
+  .loader-${anim.id} .cell {
+    width: ${cellSize}px;
+    height: ${cellSize}px;
+    background-color: ${color};
+    opacity: ${minOp};
+    animation: loader-pulse-${anim.id} ${duration}ms ${easing} infinite;
+    ${glowVal}
+  }
+  @keyframes loader-pulse-${anim.id} {
+    0%   { opacity: ${minOp}; }
+    50%  { opacity: ${maxOp}; }
+    100% { opacity: ${minOp}; }
+  }
+</style>
+<div class="loader-${anim.id}">
+${cells}
+</div>`;
 }
 
 // ─── PixelIcon (unified) ──────────────────────────────────────────────────────

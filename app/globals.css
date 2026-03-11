@@ -24,3 +24,37 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Control panel — grows from the CTA button (bottom-right origin) ─────────── */
+.cp-backdrop {
+  transition: opacity 280ms ease;
+}
+.cp-backdrop[data-open]   { opacity: 1; }
+.cp-backdrop[data-closed] { opacity: 0; }
+@starting-style {
+  .cp-backdrop[data-open] { opacity: 0; }
+}
+
+.cp-panel {
+  transform-origin: bottom right;
+}
+.cp-panel[data-open] {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+  transition:
+    transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity   280ms cubic-bezier(0.0, 0, 0.2, 1);
+}
+.cp-panel[data-closed] {
+  transform: scale(0.5) translateY(48px);
+  opacity: 0;
+  transition:
+    transform 220ms cubic-bezier(0.4, 0, 1, 1),
+    opacity   160ms cubic-bezier(0.4, 0, 1, 1);
+}
+@starting-style {
+  .cp-panel[data-open] {
+    transform: scale(0.5) translateY(48px);
+    opacity: 0;
+  }
+}
