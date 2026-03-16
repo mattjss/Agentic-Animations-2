@@ -1,19 +1,62 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AGENT_STEPS, PixelIcon, generateSnippet, type AgentAnim } from "./AgenticLoader";
 import ControlPanel, { Controls, DEFAULT_CONTROLS } from "./ControlPanel";
 
 const monoFont = "var(--font-jetbrains-mono), 'JetBrains Mono', monospace";
+const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+function scramble(str: string): string {
+  return str
+    .split("")
+    .map((c) =>
+      c === " " || c === "-" ? c : SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]
+    )
+    .join("");
+}
 
 function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
   const [hovered, setHovered] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
+  const [scrambledText, setScrambledText] = useState(step.label);
+  const [showDownload, setShowDownload] = useState(false);
 
-  const handleCopy = async () => {
+  useEffect(() => {
+    if (!hovered) {
+      setScrambledText(step.label);
+      setShowDownload(false);
+      return;
+    }
+    const scrambleId = setInterval(() => setScrambledText(() => scramble(step.label)), 40);
+    const downloadId = setTimeout(() => setShowDownload(true), 140);
+    return () => {
+      clearInterval(scrambleId);
+      clearTimeout(downloadId);
+    };
+  }, [hovered, step.label]);
+
+  const handleDownload = () => {
     if (copyState === "copied") return;
     const snippet = generateSnippet(step, controls);
-    await navigator.clipboard.writeText(snippet);
+    const doc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${step.label} Loader</title>
+</head>
+<body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#000;">
+${snippet}
+</body>
+</html>`;
+    const blob = new Blob([doc], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${step.id}-loader.html`;
+    a.click();
+    URL.revokeObjectURL(url);
     setCopyState("copied");
     setTimeout(() => setCopyState("idle"), 1800);
   };
@@ -24,7 +67,7 @@ function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={handleCopy}
+      onClick={handleDownload}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -46,7 +89,7 @@ function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
       {/* Label / copy — crossfade in same slot */}
       <div style={{ position: "relative", height: 18, width: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
 
-        {/* Label */}
+        {/* Label — scrambles on hover, then fades out */}
         <span style={{
           fontFamily: monoFont,
           fontSize: 9,
@@ -56,18 +99,18 @@ function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
           color: "#cfcfcf",
           whiteSpace: "nowrap",
           position: "absolute",
-          opacity: hovered ? 0 : 1,
-          transform: hovered ? "translateY(-3px)" : "translateY(0)",
+          opacity: showDownload ? 0 : 1,
+          transform: showDownload ? "translateY(-3px)" : "translateY(0)",
           transition: "opacity 180ms ease, transform 180ms ease",
           pointerEvents: "none",
         }}>
-          {step.label}
+          {hovered ? scrambledText : step.label}
         </span>
 
-        {/* Copy state */}
+        {/* Download state — fades in after scramble */}
         <span style={{
           fontFamily: monoFont,
-          fontSize: 8,
+          fontSize: 9,
           letterSpacing: "0.1em",
           textTransform: "uppercase",
           display: "flex",
@@ -76,25 +119,24 @@ function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
           whiteSpace: "nowrap",
           position: "absolute",
           color: isCopied ? "#6ee7b7" : "#888",
-          opacity: hovered ? 1 : 0,
-          transform: hovered ? "translateY(0)" : "translateY(3px)",
+          opacity: showDownload ? 1 : 0,
+          transform: showDownload ? "translateY(0)" : "translateY(3px)",
           transition: "opacity 180ms ease, transform 180ms ease, color 150ms",
           pointerEvents: "none",
         }}>
           {isCopied ? (
             <>
-              <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
                 <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              copied
+              downloaded
             </>
           ) : (
             <>
-              <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
-                <rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                <path d="M3 8H2a1 1 0 01-1-1V2a1 1 0 011-1h5a1 1 0 011 1v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <path d="M6 2v5M4 6l2 2 2-2M2 9h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              copy
+              download
             </>
           )}
         </span>
