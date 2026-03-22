@@ -151,10 +151,10 @@ export default function AgenticLoaderGallery() {
   return (
     <>
       <div
+        className="gallery-grid"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "64px 48px",
+          gap: "36px",
         }}
       >
         {AGENT_STEPS.map((step) => (

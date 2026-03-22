@@ -19,10 +19,20 @@
   }
 }
 
+html, body {
+  width: 100%;
+  max-width: 100vw;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ── Control panel — grows from the CTA button (bottom-right origin) ─────────── */
@@ -56,5 +66,72 @@ body {
   .cp-panel[data-open] {
     transform: scale(0.5) translateY(48px);
     opacity: 0;
+  }
+}
+
+/* ── Responsive layout ────────────────────────────────────────────────────────── */
+
+/* Gallery grid — 2×2 on mobile, 4×4 on desktop */
+.gallery-grid {
+  grid-template-columns: repeat(2, auto);
+  gap: 36px;
+  width: fit-content;
+  max-width: 100%;
+}
+@media (min-width: 768px) {
+  .gallery-grid {
+    grid-template-columns: repeat(4, auto);
+  }
+}
+
+/* Page padding — extra bottom for Controls button on mobile */
+.gallery-page {
+  padding: 20px 16px 120px !important;
+  box-sizing: border-box;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .gallery-page {
+    padding: 24px 24px 100px !important;
+  }
+}
+@media (min-width: 1024px) {
+  .gallery-page {
+    padding: 24px 16px 100px !important;
+  }
+}
+
+/* Control panel trigger: center on mobile, bottom-right on desktop */
+.cp-trigger {
+  bottom: 20px !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%);
+}
+@media (min-width: 640px) {
+  .cp-trigger {
+    left: auto !important;
+    right: 24px !important;
+    transform: none;
+  }
+}
+
+.cp-popup {
+  width: 288px;
+  right: 16px;
+  max-width: calc(100vw - 32px);
+}
+@media (max-width: 639px) {
+  .cp-popup {
+    width: calc(100vw - 32px) !important;
+    right: 16px !important;
+    left: 16px !important;
+    transform-origin: bottom center;
+  }
+}
+@media (min-width: 640px) {
+  .cp-popup {
+    right: 24px !important;
+    left: auto !important;
   }
 }

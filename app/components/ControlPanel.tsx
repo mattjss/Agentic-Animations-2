@@ -294,8 +294,9 @@ export default function ControlPanel({ controls, onChange }: {
   return (
     <Dialog.Root animated>
       <Dialog.Trigger
+        className="cp-trigger"
         style={{
-          position: "fixed", bottom: 32, right: 32,
+          position: "fixed", bottom: 24, right: 16,
           fontFamily: monoFont, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase",
           padding: "10px 22px", backgroundColor: "#ffffff", color: "#000000",
           border: "none", borderRadius: 6, cursor: "pointer", zIndex: 50,
@@ -307,9 +308,9 @@ export default function ControlPanel({ controls, onChange }: {
 
       <Dialog.Portal>
         <Dialog.Popup
-          className="cp-panel"
+          className="cp-panel cp-popup"
           style={{
-            position: "fixed", bottom: 88, right: 32,
+            position: "fixed", bottom: 88, right: 16,
             width: 288,
             backgroundColor: "#080808",
             border: "1px solid #2e2e2e",
