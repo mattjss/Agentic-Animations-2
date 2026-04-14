@@ -65,6 +65,7 @@ ${snippet}
 
   return (
     <div
+      className="gallery-card"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleDownload}
