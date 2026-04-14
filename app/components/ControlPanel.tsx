@@ -24,44 +24,64 @@ export const DEFAULT_CONTROLS: Controls = {
   cellSize: 8,
 };
 
-// ─── Color palettes ───────────────────────────────────────────────────────────
+// ─── Color palettes (16 each) — hex from Tailwind default palette ─────────────
+// Basic: neutrals + full hue ring at 500 (balanced on UI)
 const BASIC_COLORS = [
-  { label: "White",   value: "#ffffff" },
-  { label: "Silver",  value: "#a0a0a0" },
-  { label: "Slate",   value: "#64748b" },
-  { label: "Charcoal",value: "#374151" },
-  { label: "Red",     value: "#ef4444" },
-  { label: "Orange",  value: "#f97316" },
-  { label: "Amber",   value: "#f59e0b" },
-  { label: "Yellow",  value: "#eab308" },
-  { label: "Lime",    value: "#84cc16" },
-  { label: "Green",   value: "#22c55e" },
-  { label: "Teal",    value: "#14b8a6" },
-  { label: "Cyan",    value: "#06b6d4" },
-  { label: "Blue",    value: "#3b82f6" },
-  { label: "Indigo",  value: "#6366f1" },
-  { label: "Purple",  value: "#a855f7" },
-  { label: "Pink",    value: "#ec4899" },
+  { label: "Stone 50",   value: "#fafaf9" },
+  { label: "Stone 900",  value: "#1c1917" },
+  { label: "Zinc 500",   value: "#71717b" },
+  { label: "Red 500",    value: "#ef4444" },
+  { label: "Orange 500", value: "#f97316" },
+  { label: "Amber 500",  value: "#f59e0b" },
+  { label: "Yellow 500", value: "#eab308" },
+  { label: "Lime 500",   value: "#84cc16" },
+  { label: "Green 500",  value: "#22c55e" },
+  { label: "Emerald 500",value: "#10b981" },
+  { label: "Teal 500",   value: "#14b8a6" },
+  { label: "Cyan 500",   value: "#06b6d4" },
+  { label: "Sky 500",    value: "#0ea5e9" },
+  { label: "Blue 500",   value: "#3b82f6" },
+  { label: "Indigo 500", value: "#6366f1" },
+  { label: "Purple 500", value: "#a855f7" },
 ];
 
+// Neon: high-chroma / full-gamut picks (not Tailwind pastels) — reads electric on #000
 const NEON_COLORS = [
-  { label: "Neon White",  value: "#f0f0ff" },
-  { label: "Neon Cyan",   value: "#00f5ff" },
-  { label: "Neon Green",  value: "#39ff14" },
-  { label: "Neon Lime",   value: "#ccff00" },
-  { label: "Neon Yellow", value: "#fff01f" },
-  { label: "Neon Orange", value: "#ff6600" },
-  { label: "Neon Pink",   value: "#ff2d78" },
-  { label: "Neon Red",    value: "#ff1111" },
-  { label: "Neon Teal",   value: "#08e8de" },
-  { label: "Neon Mint",   value: "#00ffb3" },
-  { label: "Neon Purple", value: "#bf00ff" },
-  { label: "Neon Violet", value: "#7b00ff" },
-  { label: "Neon Blue",   value: "#0080ff" },
-  { label: "Neon Sky",    value: "#00bfff" },
-  { label: "Neon Rose",   value: "#ff007f" },
-  { label: "Neon Coral",  value: "#ff4040" },
+  { label: "Tube White",  value: "#bfffef" },
+  { label: "Voltage",     value: "#fcff33" },
+  { label: "Acid",        value: "#c4ff00" },
+  { label: "Gamma",       value: "#39ff14" },
+  { label: "Toxic",       value: "#00ff66" },
+  { label: "Aqua",        value: "#00ffc6" },
+  { label: "Plasma",      value: "#00f5ff" },
+  { label: "Arc",         value: "#00b8ff" },
+  { label: "Cobalt",      value: "#0077ff" },
+  { label: "Ultraviolet", value: "#6b21ff" },
+  { label: "Violet",      value: "#a600ff" },
+  { label: "Synth",       value: "#e000ff" },
+  { label: "Magenta",     value: "#ff00e5" },
+  { label: "Hot Pink",    value: "#ff1493" },
+  { label: "Laser Red",   value: "#ff003c" },
+  { label: "Blaze",      value: "#ff5a00" },
 ];
+
+const basic = (i: number) => BASIC_COLORS[i].value;
+const neon = (i: number) => NEON_COLORS[i].value;
+
+function gradPreset(
+  label: string,
+  a: { kind: "basic" | "neon"; i: number },
+  b: { kind: "basic" | "neon"; i: number },
+): { label: string; s1: string; s2: string; value: string } {
+  const s1 = a.kind === "basic" ? basic(a.i) : neon(a.i);
+  const s2 = b.kind === "basic" ? basic(b.i) : neon(b.i);
+  return {
+    label,
+    s1,
+    s2,
+    value: `linear-gradient(135deg, ${s1}, ${s2})`,
+  };
+}
 
 const CELL_OPTIONS = [
   { label: "XS", sub: "12×12", value: 4  },
@@ -71,35 +91,28 @@ const CELL_OPTIONS = [
   { label: "XL", sub: "36×36", value: 12 },
 ];
 
+// Gradients: 16 presets — every stop is from Basic or Neon above; pairs tuned for smooth 135° blends
 const GRADIENTS = [
-  { label: "Aurora",  s1: "#00f5ff", s2: "#bf00ff", value: "linear-gradient(135deg, #00f5ff, #bf00ff)" },
-  { label: "Sunset",  s1: "#ff6600", s2: "#ff2d78", value: "linear-gradient(135deg, #ff6600, #ff2d78)" },
-  { label: "Emerald", s1: "#39ff14", s2: "#00f5ff", value: "linear-gradient(135deg, #39ff14, #00f5ff)" },
-  { label: "Gold",    s1: "#fff01f", s2: "#f97316", value: "linear-gradient(135deg, #fff01f, #f97316)" },
-  { label: "Candy",   s1: "#ff2d78", s2: "#a855f7", value: "linear-gradient(135deg, #ff2d78, #a855f7)" },
-  { label: "Ocean",   s1: "#3b82f6", s2: "#08e8de", value: "linear-gradient(135deg, #3b82f6, #08e8de)" },
-  { label: "Inferno", s1: "#ef4444", s2: "#fff01f", value: "linear-gradient(135deg, #ef4444, #fff01f)" },
-  { label: "Void",    s1: "#a855f7", s2: "#1b03a3", value: "linear-gradient(135deg, #a855f7, #1b03a3)" },
-  { label: "Glacier", s1: "#e0f2fe", s2: "#3b82f6", value: "linear-gradient(135deg, #e0f2fe, #3b82f6)" },
-  { label: "Toxic",   s1: "#ccff00", s2: "#39ff14", value: "linear-gradient(135deg, #ccff00, #39ff14)" },
-  { label: "Blaze",   s1: "#ff1111", s2: "#ff6600", value: "linear-gradient(135deg, #ff1111, #ff6600)" },
-  { label: "Nebula",  s1: "#bf00ff", s2: "#ff2d78", value: "linear-gradient(135deg, #bf00ff, #ff2d78)" },
-  { label: "Mint",    s1: "#00ffb3", s2: "#06b6d4", value: "linear-gradient(135deg, #00ffb3, #06b6d4)" },
-  { label: "Dusk",    s1: "#6366f1", s2: "#ec4899", value: "linear-gradient(135deg, #6366f1, #ec4899)" },
-  { label: "Matrix",  s1: "#39ff14", s2: "#14b8a6", value: "linear-gradient(135deg, #39ff14, #14b8a6)" },
-  { label: "Solar",   s1: "#fff01f", s2: "#bf00ff", value: "linear-gradient(135deg, #fff01f, #bf00ff)" },
+  gradPreset("Pulse",       { kind: "basic", i: 3 }, { kind: "neon", i: 6 }),   // Red → Plasma cyan
+  gradPreset("Arcade",      { kind: "neon", i: 3 }, { kind: "basic", i: 14 }), // Gamma → Indigo
+  gradPreset("Veil",        { kind: "basic", i: 0 }, { kind: "basic", i: 15 }), // Stone 50 → Purple
+  gradPreset("Jewel",       { kind: "neon", i: 12 }, { kind: "basic", i: 9 }),  // Magenta → Emerald
+  gradPreset("Marina",      { kind: "basic", i: 4 }, { kind: "neon", i: 8 }),   // Orange → Cobalt
+  gradPreset("Strobe",      { kind: "neon", i: 1 }, { kind: "basic", i: 1 }),    // Voltage → Stone 900
+  gradPreset("South Beach", { kind: "basic", i: 10 }, { kind: "neon", i: 13 }), // Teal → Hot pink
+  gradPreset("Nebula",      { kind: "neon", i: 9 }, { kind: "basic", i: 5 }),     // UV → Amber
+  gradPreset("Contrast",    { kind: "basic", i: 11 }, { kind: "basic", i: 4 }),  // Cyan → Orange
+  gradPreset("Horizon",     { kind: "neon", i: 15 }, { kind: "basic", i: 12 }),  // Blaze → Sky
+  gradPreset("Synthwave",   { kind: "basic", i: 7 }, { kind: "neon", i: 11 }),   // Lime → Synth
+  gradPreset("Alert",       { kind: "neon", i: 5 }, { kind: "basic", i: 3 }),    // Aqua → Red
+  gradPreset("Classic",     { kind: "basic", i: 6 }, { kind: "basic", i: 13 }),  // Yellow → Blue
+  gradPreset("Toxic Royal", { kind: "neon", i: 2 }, { kind: "basic", i: 15 }),   // Acid → Purple
+  gradPreset("Stratos",     { kind: "basic", i: 12 }, { kind: "neon", i: 14 }),  // Sky → Laser red
+  gradPreset("Comet",       { kind: "basic", i: 14 }, { kind: "neon", i: 0 }),   // Indigo → Tube white
 ];
 
-const GRAD_DIRECTIONS = [
-  { label: "↑", deg: "0deg"   },
-  { label: "↗", deg: "45deg"  },
-  { label: "→", deg: "90deg"  },
-  { label: "↘", deg: "135deg" },
-  { label: "↓", deg: "180deg" },
-  { label: "↙", deg: "225deg" },
-  { label: "←", deg: "270deg" },
-  { label: "↖", deg: "315deg" },
-];
+/** Fixed gradient angle (matches preset swatches). */
+const GRAD_ANGLE = "135deg";
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const monoFont = "var(--font-jetbrains-mono), 'JetBrains Mono', monospace";
@@ -322,7 +335,6 @@ export default function ControlPanel({ controls, onChange }: {
   const [hexInput, setHexInput] = useState(controls.color);
   const [gradStop1, setGradStop1] = useState("#00f5ff");
   const [gradStop2, setGradStop2] = useState("#bf00ff");
-  const [gradDir, setGradDir]     = useState("135deg");
   const [hex1, setHex1] = useState("#00f5ff");
   const [hex2, setHex2] = useState("#bf00ff");
 
@@ -462,7 +474,7 @@ export default function ControlPanel({ controls, onChange }: {
                           <button key={g.value} onClick={() => {
                             setGradStop1(g.s1); setHex1(g.s1);
                             setGradStop2(g.s2); setHex2(g.s2);
-                            applyGrad(g.s1, g.s2, gradDir);
+                            applyGrad(g.s1, g.s2, GRAD_ANGLE);
                           }}
                             title={g.label}
                             style={{
@@ -474,36 +486,18 @@ export default function ControlPanel({ controls, onChange }: {
                           />
                         ))}
                       </div>
-                      <div style={{ height: 20, borderRadius: 5, background: buildGrad(gradStop1, gradStop2, gradDir), border: "1px solid #2e2e2e", flexShrink: 0 }} />
-                      <div className="cp-dir-grid" style={{ display: "flex", gap: 3 }}>
-                        {GRAD_DIRECTIONS.map((d) => (
-                          <button key={d.deg} className="cp-dir-btn"
-                            onClick={() => { setGradDir(d.deg); applyGrad(gradStop1, gradStop2, d.deg); }}
-                            style={{
-                              flex: 1, fontFamily: monoFont, fontSize: 10, padding: "3px 0",
-                              borderRadius: 3, border: "1px solid",
-                              borderColor: gradDir === d.deg ? "#ffffff" : "#3d3d3d",
-                              backgroundColor: gradDir === d.deg ? "#1e1e1e" : "transparent",
-                              color: gradDir === d.deg ? "#ffffff" : "#888",
-                              cursor: "pointer", transition: "all 100ms", lineHeight: 1,
-                            }}
-                          >{d.label}</button>
-                        ))}
-                      </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <div>
-                          <span style={{ ...labelStyle, marginBottom: 4, display: "block" }}>Stop A</span>
                           <PickerRow value={gradStop1} hex={hex1}
-                            onPicker={(v) => { setGradStop1(v); setHex1(v); applyGrad(v, gradStop2, gradDir); }}
-                            onHex={(v) => { setHex1(v); if (/^#[0-9a-fA-F]{6}$/.test(v)) { setGradStop1(v); applyGrad(v, gradStop2, gradDir); } }}
+                            onPicker={(v) => { setGradStop1(v); setHex1(v); applyGrad(v, gradStop2, GRAD_ANGLE); }}
+                            onHex={(v) => { setHex1(v); if (/^#[0-9a-fA-F]{6}$/.test(v)) { setGradStop1(v); applyGrad(v, gradStop2, GRAD_ANGLE); } }}
                             onBlur={() => setHex1(gradStop1)}
                           />
                         </div>
                         <div>
-                          <span style={{ ...labelStyle, marginBottom: 4, display: "block" }}>Stop B</span>
                           <PickerRow value={gradStop2} hex={hex2}
-                            onPicker={(v) => { setGradStop2(v); setHex2(v); applyGrad(gradStop1, v, gradDir); }}
-                            onHex={(v) => { setHex2(v); if (/^#[0-9a-fA-F]{6}$/.test(v)) { setGradStop2(v); applyGrad(gradStop1, v, gradDir); } }}
+                            onPicker={(v) => { setGradStop2(v); setHex2(v); applyGrad(gradStop1, v, GRAD_ANGLE); }}
+                            onHex={(v) => { setHex2(v); if (/^#[0-9a-fA-F]{6}$/.test(v)) { setGradStop2(v); applyGrad(gradStop1, v, GRAD_ANGLE); } }}
                             onBlur={() => setHex2(gradStop2)}
                           />
                         </div>
@@ -555,7 +549,6 @@ export default function ControlPanel({ controls, onChange }: {
               setColorTab("basic");
               setGradStop1("#00f5ff"); setHex1("#00f5ff");
               setGradStop2("#bf00ff"); setHex2("#bf00ff");
-              setGradDir("135deg");
               onChange(DEFAULT_CONTROLS);
             }}
             style={{

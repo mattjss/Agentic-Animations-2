@@ -308,16 +308,6 @@ html {
     min-height: 44px !important;
     padding: 10px 4px !important;
   }
-  .cp-dir-grid {
-    display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 6px !important;
-  }
-  .cp-dir-btn {
-    min-height: 44px !important;
-    padding: 10px !important;
-    font-size: 14px !important;
-  }
   .cp-grad-grid {
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 8px !important;

@@ -77,7 +77,6 @@ ${snippet}
         cursor: isCopied ? "default" : "pointer",
       }}
     >
-      {/* Animation — subtle ring on hover */}
       <div style={{
         borderRadius: 6,
         padding: 8,
@@ -87,10 +86,8 @@ ${snippet}
         <PixelIcon stepId={step.id} controls={controls} />
       </div>
 
-      {/* Label / copy — crossfade in same slot */}
       <div style={{ position: "relative", height: 18, width: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
 
-        {/* Label — scrambles on hover, then fades out */}
         <span style={{
           fontFamily: monoFont,
           fontSize: 9,
@@ -108,7 +105,6 @@ ${snippet}
           {hovered ? scrambledText : step.label}
         </span>
 
-        {/* Download state — fades in after scramble */}
         <span style={{
           fontFamily: monoFont,
           fontSize: 9,
