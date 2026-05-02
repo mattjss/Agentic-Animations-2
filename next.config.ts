@@ -1,12 +1,10 @@
 import type { NextConfig } from "next";
+import { createRequire } from "module";
 import path from "path";
-import { fileURLToPath } from "url";
 
-/**
- * Lock this app to this directory. If a parent folder (e.g. $HOME) also has
- * package-lock.json, Next 15+ may pick the wrong root and break dev/prod (500s).
- */
-const ROOT = path.dirname(fileURLToPath(import.meta.url));
+/** Absolute path to this app (directory of package.json), not a parent folder with an extra lockfile. */
+const require = createRequire(import.meta.url);
+const ROOT = path.dirname(require.resolve("./package.json"));
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: ROOT,
