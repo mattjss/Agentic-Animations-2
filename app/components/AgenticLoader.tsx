@@ -27,13 +27,6 @@ export type FrameAnim = {
 
 export type AgentAnim = CssAnim | FrameAnim;
 
-// ─── Frame helpers ────────────────────────────────────────────────────────────
-const O = [0, 0.08, 0.18, 0.32, 0.50, 0.68, 0.84, 1.0];
-const o = (v: number) => O[Math.min(Math.max(v, 0), 7)];
-function f(rows: number[][]): number[] {
-  return rows.flat().map(v => o(v));
-}
-
 // ─── CSS delay helpers (3×3, step = ms between adjacent cells) ───────────────
 const d = (arr: number[], step: number) => arr.map(v => v * step);
 
@@ -360,7 +353,8 @@ export function generateSnippet(anim: AgentAnim, controls: Controls): string {
   }`;
 
   const cells = anim.delays
-    .map((delay, i) =>
+    .map(
+      (delay) =>
       `  <div class="cell" style="animation-delay:${delay}ms"></div>`
     )
     .join("\n");

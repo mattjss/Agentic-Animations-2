@@ -114,6 +114,27 @@ const GRADIENTS = [
 /** Fixed gradient angle (matches preset swatches). */
 const GRAD_ANGLE = "135deg";
 
+type GradientPreset = (typeof GRADIENTS)[number];
+
+const UNIQUE_GRADIENT_PRESETS: GradientPreset[] = (() => {
+  const seen = new Set<string>();
+  return GRADIENTS.filter((g) => {
+    if (seen.has(g.value)) return false;
+    seen.add(g.value);
+    return true;
+  });
+})();
+
+/** Fisher–Yates shuffle of unique presets (fresh grid order). */
+function shuffleUniqueGradientPresets(): GradientPreset[] {
+  const out = [...UNIQUE_GRADIENT_PRESETS];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const monoFont = "var(--font-jetbrains-mono), 'JetBrains Mono', monospace";
 
@@ -342,12 +363,28 @@ export default function ControlPanel({ controls, onChange }: {
   const [openColor, setOpenColor] = useState(true);
   const [openMotion, setOpenMotion] = useState(false);
   const [openSize, setOpenSize] = useState(false);
+  const [gradientPresetsShown, setGradientPresetsShown] = useState<GradientPreset[]>(
+    () => [...UNIQUE_GRADIENT_PRESETS],
+  );
 
   const buildGrad = (s1: string, s2: string, dir: string) =>
     `linear-gradient(${dir}, ${s1}, ${s2})`;
 
   const applyGrad = (s1: string, s2: string, dir: string) =>
     onChange({ ...controls, color: buildGrad(s1, s2, dir), colorMode: "gradient" });
+
+  const goToGradientTab = () => {
+    setColorTab("gradient");
+    setGradientPresetsShown(shuffleUniqueGradientPresets());
+  };
+
+  const applyPreset = (g: GradientPreset) => {
+    setGradStop1(g.s1);
+    setHex1(g.s1);
+    setGradStop2(g.s2);
+    setHex2(g.s2);
+    applyGrad(g.s1, g.s2, GRAD_ANGLE);
+  };
 
   const set = <K extends keyof Controls>(key: K, val: Controls[K]) =>
     onChange({ ...controls, [key]: val });
@@ -362,7 +399,11 @@ export default function ControlPanel({ controls, onChange }: {
     controls.colorMode === "gradient" ? "Grad" : colorTab === "neon" ? "Neon" : "Basic";
 
   return (
-    <Dialog.Root>
+    <Dialog.Root
+      onOpenChange={(open) => {
+        if (open && colorTab === "gradient") setGradientPresetsShown(shuffleUniqueGradientPresets());
+      }}
+    >
       <Dialog.Trigger
         className="cp-trigger"
         style={{
@@ -446,7 +487,7 @@ export default function ControlPanel({ controls, onChange }: {
                     <div style={{ display: "flex", gap: 1 }}>
                       <TabBtn active={colorTab === "basic"} onClick={() => setColorTab("basic")}>Basic</TabBtn>
                       <TabBtn active={colorTab === "neon"} onClick={() => setColorTab("neon")}>Neon</TabBtn>
-                      <TabBtn active={colorTab === "gradient"} onClick={() => setColorTab("gradient")}>Grad</TabBtn>
+                      <TabBtn active={colorTab === "gradient"} onClick={goToGradientTab}>Grad</TabBtn>
                     </div>
                   </div>
 
@@ -469,13 +510,30 @@ export default function ControlPanel({ controls, onChange }: {
 
                   {colorTab === "gradient" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div className="cp-grad-grid" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
-                        {GRADIENTS.map((g) => (
-                          <button key={g.value} onClick={() => {
-                            setGradStop1(g.s1); setHex1(g.s1);
-                            setGradStop2(g.s2); setHex2(g.s2);
-                            applyGrad(g.s1, g.s2, GRAD_ANGLE);
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
+                        <button
+                          type="button"
+                          className="cp-grad-shuffle"
+                          onClick={() => setGradientPresetsShown(shuffleUniqueGradientPresets())}
+                          style={{
+                            fontFamily: monoFont,
+                            fontSize: 8,
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            padding: "4px 10px",
+                            borderRadius: 4,
+                            border: "1px solid #454545",
+                            backgroundColor: "#141414",
+                            color: "#ccc",
+                            cursor: "pointer",
                           }}
+                        >
+                          Shuffle
+                        </button>
+                      </div>
+                      <div className="cp-grad-grid" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
+                        {gradientPresetsShown.map((g) => (
+                          <button key={g.value} type="button" onClick={() => applyPreset(g)}
                             title={g.label}
                             style={{
                               width: "100%", aspectRatio: "1", borderRadius: 3,
