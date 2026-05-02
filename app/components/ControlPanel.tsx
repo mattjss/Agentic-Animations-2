@@ -1,7 +1,8 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { HexColorPicker } from "react-colorful";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type ColorMode = "solid" | "gradient";
@@ -24,63 +25,62 @@ export const DEFAULT_CONTROLS: Controls = {
   cellSize: 8,
 };
 
-// ─── Color palettes (16 each) — hex from Tailwind default palette ─────────────
-// Basic: neutrals + full hue ring at 500 (balanced on UI)
-const BASIC_COLORS = [
-  { label: "Stone 50",   value: "#fafaf9" },
-  { label: "Stone 900",  value: "#1c1917" },
-  { label: "Zinc 500",   value: "#71717b" },
-  { label: "Red 500",    value: "#ef4444" },
-  { label: "Orange 500", value: "#f97316" },
-  { label: "Amber 500",  value: "#f59e0b" },
-  { label: "Yellow 500", value: "#eab308" },
-  { label: "Lime 500",   value: "#84cc16" },
-  { label: "Green 500",  value: "#22c55e" },
-  { label: "Emerald 500",value: "#10b981" },
-  { label: "Teal 500",   value: "#14b8a6" },
-  { label: "Cyan 500",   value: "#06b6d4" },
-  { label: "Sky 500",    value: "#0ea5e9" },
-  { label: "Blue 500",   value: "#3b82f6" },
-  { label: "Indigo 500", value: "#6366f1" },
-  { label: "Purple 500", value: "#a855f7" },
-];
+// ─── Color generation helpers ─────────────────────────────────────────────────
+type Swatch = { label: string; value: string };
+type GradientPreset = { label: string; s1: string; s2: string; value: string };
 
-// Neon: high-chroma / full-gamut picks (not Tailwind pastels) — reads electric on #000
-const NEON_COLORS = [
-  { label: "Tube White",  value: "#bfffef" },
-  { label: "Voltage",     value: "#fcff33" },
-  { label: "Acid",        value: "#c4ff00" },
-  { label: "Gamma",       value: "#39ff14" },
-  { label: "Toxic",       value: "#00ff66" },
-  { label: "Aqua",        value: "#00ffc6" },
-  { label: "Plasma",      value: "#00f5ff" },
-  { label: "Arc",         value: "#00b8ff" },
-  { label: "Cobalt",      value: "#0077ff" },
-  { label: "Ultraviolet", value: "#6b21ff" },
-  { label: "Violet",      value: "#a600ff" },
-  { label: "Synth",       value: "#e000ff" },
-  { label: "Magenta",     value: "#ff00e5" },
-  { label: "Hot Pink",    value: "#ff1493" },
-  { label: "Laser Red",   value: "#ff003c" },
-  { label: "Blaze",      value: "#ff5a00" },
-];
-
-const basic = (i: number) => BASIC_COLORS[i].value;
-const neon = (i: number) => NEON_COLORS[i].value;
-
-function gradPreset(
-  label: string,
-  a: { kind: "basic" | "neon"; i: number },
-  b: { kind: "basic" | "neon"; i: number },
-): { label: string; s1: string; s2: string; value: string } {
-  const s1 = a.kind === "basic" ? basic(a.i) : neon(a.i);
-  const s2 = b.kind === "basic" ? basic(b.i) : neon(b.i);
-  return {
-    label,
-    s1,
-    s2,
-    value: `linear-gradient(135deg, ${s1}, ${s2})`,
+function hslToHex(h: number, s: number, l: number): string {
+  const hh = ((h % 360) + 360) % 360;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + hh / 30) % 12;
+    const c = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * Math.max(0, Math.min(1, c)))
+      .toString(16)
+      .padStart(2, "0");
   };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function randRange(lo: number, hi: number) {
+  return lo + Math.random() * (hi - lo);
+}
+
+const SWATCH_COUNT = 16;
+
+function generateBasicSwatches(): Swatch[] {
+  const hueStart = Math.random() * 360;
+  return Array.from({ length: SWATCH_COUNT }, (_, i) => {
+    const h = (hueStart + (i * 360) / SWATCH_COUNT + randRange(-8, 8)) % 360;
+    const s = randRange(0.55, 0.85);
+    const l = randRange(0.4, 0.65);
+    const hex = hslToHex(h, s, l);
+    return { label: hex, value: hex };
+  });
+}
+
+function generateNeonSwatches(): Swatch[] {
+  const hueStart = Math.random() * 360;
+  return Array.from({ length: SWATCH_COUNT }, (_, i) => {
+    const h = (hueStart + (i * 360) / SWATCH_COUNT + randRange(-10, 10)) % 360;
+    const s = randRange(0.9, 1);
+    const l = randRange(0.5, 0.7);
+    const hex = hslToHex(h, s, l);
+    return { label: hex, value: hex };
+  });
+}
+
+function generateGradientPresets(): GradientPreset[] {
+  return Array.from({ length: SWATCH_COUNT }, () => {
+    const h1 = Math.random() * 360;
+    const h2 = h1 + randRange(60, 180);
+    const s1 = randRange(0.7, 1), l1 = randRange(0.45, 0.65);
+    const s2 = randRange(0.7, 1), l2 = randRange(0.45, 0.65);
+    const c1 = hslToHex(h1, s1, l1);
+    const c2 = hslToHex(h2, s2, l2);
+    const value = `linear-gradient(135deg, ${c1}, ${c2})`;
+    return { label: `${c1} → ${c2}`, s1: c1, s2: c2, value };
+  });
 }
 
 const CELL_OPTIONS = [
@@ -91,49 +91,8 @@ const CELL_OPTIONS = [
   { label: "XL", sub: "36×36", value: 12 },
 ];
 
-// Gradients: 16 presets — every stop is from Basic or Neon above; pairs tuned for smooth 135° blends
-const GRADIENTS = [
-  gradPreset("Pulse",       { kind: "basic", i: 3 }, { kind: "neon", i: 6 }),   // Red → Plasma cyan
-  gradPreset("Arcade",      { kind: "neon", i: 3 }, { kind: "basic", i: 14 }), // Gamma → Indigo
-  gradPreset("Veil",        { kind: "basic", i: 0 }, { kind: "basic", i: 15 }), // Stone 50 → Purple
-  gradPreset("Jewel",       { kind: "neon", i: 12 }, { kind: "basic", i: 9 }),  // Magenta → Emerald
-  gradPreset("Marina",      { kind: "basic", i: 4 }, { kind: "neon", i: 8 }),   // Orange → Cobalt
-  gradPreset("Strobe",      { kind: "neon", i: 1 }, { kind: "basic", i: 1 }),    // Voltage → Stone 900
-  gradPreset("South Beach", { kind: "basic", i: 10 }, { kind: "neon", i: 13 }), // Teal → Hot pink
-  gradPreset("Nebula",      { kind: "neon", i: 9 }, { kind: "basic", i: 5 }),     // UV → Amber
-  gradPreset("Contrast",    { kind: "basic", i: 11 }, { kind: "basic", i: 4 }),  // Cyan → Orange
-  gradPreset("Horizon",     { kind: "neon", i: 15 }, { kind: "basic", i: 12 }),  // Blaze → Sky
-  gradPreset("Synthwave",   { kind: "basic", i: 7 }, { kind: "neon", i: 11 }),   // Lime → Synth
-  gradPreset("Alert",       { kind: "neon", i: 5 }, { kind: "basic", i: 3 }),    // Aqua → Red
-  gradPreset("Classic",     { kind: "basic", i: 6 }, { kind: "basic", i: 13 }),  // Yellow → Blue
-  gradPreset("Toxic Royal", { kind: "neon", i: 2 }, { kind: "basic", i: 15 }),   // Acid → Purple
-  gradPreset("Stratos",     { kind: "basic", i: 12 }, { kind: "neon", i: 14 }),  // Sky → Laser red
-  gradPreset("Comet",       { kind: "basic", i: 14 }, { kind: "neon", i: 0 }),   // Indigo → Tube white
-];
-
-/** Fixed gradient angle (matches preset swatches). */
 const GRAD_ANGLE = "135deg";
 
-type GradientPreset = (typeof GRADIENTS)[number];
-
-const UNIQUE_GRADIENT_PRESETS: GradientPreset[] = (() => {
-  const seen = new Set<string>();
-  return GRADIENTS.filter((g) => {
-    if (seen.has(g.value)) return false;
-    seen.add(g.value);
-    return true;
-  });
-})();
-
-/** Fisher–Yates shuffle of unique presets (fresh grid order). */
-function shuffleUniqueGradientPresets(): GradientPreset[] {
-  const out = [...UNIQUE_GRADIENT_PRESETS];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const monoFont = "var(--font-jetbrains-mono), 'JetBrains Mono', monospace";
@@ -298,11 +257,11 @@ function SwatchGrid({ swatches, active, onSelect }: {
   onSelect: (v: string) => void;
 }) {
   return (
-    <div className="cp-swatch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4, marginBottom: 8 }}>
+    <div className="cp-swatch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
       {swatches.map((s) => (
         <button key={s.value} className="cp-swatch" onClick={() => onSelect(s.value)} title={s.label}
           style={{
-            width: "100%", aspectRatio: "1", borderRadius: "50%",
+            width: "100%", aspectRatio: "1", borderRadius: 3,
             background: s.value,
             border: active === s.value ? "2px solid #fff" : "2px solid transparent",
             cursor: "pointer", padding: 0, outline: "none",
@@ -328,21 +287,41 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
   );
 }
 
-// ─── Compact color + hex row ──────────────────────────────────────────────────
+// ─── Compact color + hex row with popover picker ─────────────────────────────
 function PickerRow({ value, hex, onPicker, onHex, onBlur }: {
   value: string; hex: string;
   onPicker: (v: string) => void;
   onHex: (v: string) => void;
   onBlur: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const popRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (popRef.current && !popRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-      <input type="color" className="cp-picker-color" value={value} onChange={(e) => onPicker(e.target.value)}
-        style={{ width: 24, height: 24, border: "1px solid #3d3d3d", borderRadius: 3, backgroundColor: "transparent", cursor: "pointer", padding: 1, flexShrink: 0 }}
+    <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{ width: 24, height: 24, border: "1px solid #3d3d3d", borderRadius: 3, backgroundColor: value, cursor: "pointer", padding: 0, flexShrink: 0 }}
+        aria-label="Pick color"
       />
       <input type="text" className="cp-picker-hex" value={hex} onChange={(e) => onHex(e.target.value)} onBlur={onBlur} placeholder="#ffffff"
         style={{ fontFamily: monoFont, fontSize: 10, letterSpacing: "0.06em", backgroundColor: "#111", border: "1px solid #3d3d3d", borderRadius: 3, color: "#aaa", padding: "3px 7px", width: "100%", outline: "none" }}
       />
+      {open && (
+        <div ref={popRef} className="cp-color-popover">
+          <HexColorPicker color={value} onChange={onPicker} />
+        </div>
+      )}
     </div>
   );
 }
@@ -359,13 +338,14 @@ export default function ControlPanel({ controls, onChange }: {
   const [hex1, setHex1] = useState("#00f5ff");
   const [hex2, setHex2] = useState("#bf00ff");
 
-  const [minimized, setMinimized] = useState(false);
   const [openColor, setOpenColor] = useState(true);
   const [openMotion, setOpenMotion] = useState(false);
   const [openSize, setOpenSize] = useState(false);
   const [gradientPresetsShown, setGradientPresetsShown] = useState<GradientPreset[]>(
-    () => [...UNIQUE_GRADIENT_PRESETS],
+    generateGradientPresets,
   );
+  const [basicSwatchesShown, setBasicSwatchesShown] = useState(generateBasicSwatches);
+  const [neonSwatchesShown, setNeonSwatchesShown] = useState(generateNeonSwatches);
 
   const buildGrad = (s1: string, s2: string, dir: string) =>
     `linear-gradient(${dir}, ${s1}, ${s2})`;
@@ -375,7 +355,7 @@ export default function ControlPanel({ controls, onChange }: {
 
   const goToGradientTab = () => {
     setColorTab("gradient");
-    setGradientPresetsShown(shuffleUniqueGradientPresets());
+    setGradientPresetsShown(generateGradientPresets());
   };
 
   const applyPreset = (g: GradientPreset) => {
@@ -401,27 +381,32 @@ export default function ControlPanel({ controls, onChange }: {
   return (
     <Dialog.Root
       onOpenChange={(open) => {
-        if (open && colorTab === "gradient") setGradientPresetsShown(shuffleUniqueGradientPresets());
+        if (open && colorTab === "gradient") setGradientPresetsShown(generateGradientPresets());
       }}
     >
-      <Dialog.Trigger
-        className="cp-trigger"
-        style={{
-          position: "fixed", bottom: 24, right: 16,
-          fontFamily: monoFont, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase",
-          padding: "10px 22px", backgroundColor: "#ffffff", color: "#000000",
-          border: "none", borderRadius: 6, cursor: "pointer", zIndex: 50,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
-        }}
-      >
-        Controls
+      <Dialog.Trigger className="cp-collapsed-dock">
+        <div className="cp-collapsed-dock-head">
+          <span style={{ fontFamily: monoFont, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "#ffffff" }}>
+            Controls
+          </span>
+          <svg className="cp-collapsed-dock-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <path d="M7 4v6M4 7l3-3 3 3" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div className="cp-collapsed-dock-strip">
+          <span className="cp-color-dot" style={{ background: controls.color }} />
+          <span className="cp-collapsed-dock-status">
+            {`${controls.speed.toFixed(2)}× · ${cellLabel} · ${colorSummary.toUpperCase()}`}
+          </span>
+          <span className="cp-collapsed-dock-expand">Expand</span>
+        </div>
       </Dialog.Trigger>
 
       <Dialog.Portal>
         <Dialog.Popup
           className="cp-panel cp-popup"
           style={{
-            position: "fixed", bottom: 72, right: 16,
+            position: "fixed", top: 24, right: 16,
             width: 288,
             backgroundColor: "#080808",
             border: "1px solid #2e2e2e",
@@ -434,53 +419,18 @@ export default function ControlPanel({ controls, onChange }: {
           }}
         >
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: minimized ? 0 : 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontFamily: monoFont, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "#ffffff" }}>
               Controls
             </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-              {!minimized && (
-                <button
-                  type="button"
-                  className="cp-minimize-btn"
-                  aria-label="Minimize panel"
-                  onClick={() => setMinimized(true)}
-                  style={{ width: 36, height: 36 }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-                    <path d="M2 5h10M2 9h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                  </svg>
-                </button>
-              )}
-              {minimized && (
-                <button
-                  type="button"
-                  className="cp-minimize-btn"
-                  aria-label="Expand panel"
-                  onClick={() => setMinimized(false)}
-                  style={{ width: 36, height: 36 }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-                    <path d="M7 10V4M4 7l3-3 3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              )}
-              <Dialog.Close className="cp-close" style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 3, fontFamily: monoFont }}>
-                ✕
-              </Dialog.Close>
-            </div>
+            <Dialog.Close className="cp-minimize-btn" aria-label="Collapse panel" style={{ width: 14, height: 14 }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <path d="M7 4v6M4 7l3 3 3-3" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Dialog.Close>
           </div>
 
-          {minimized ? (
-            <button type="button" className="cp-expand-strip" onClick={() => setMinimized(false)}>
-              <span className="cp-color-dot" style={{ background: controls.color }} />
-              <span style={{ color: "#aaa" }}>
-                {`${controls.speed.toFixed(2)}× · ${cellLabel} · ${colorSummary}`}
-              </span>
-              <span style={{ marginLeft: "auto", color: "#666" }}>Expand</span>
-            </button>
-          ) : (
-            <div className="cp-panel-body">
+          <div className="cp-panel-body">
               <CollapseSection title="Color" expanded={openColor} onToggle={() => setOpenColor((v) => !v)}>
                 <div style={{ marginBottom: 4 }}>
                   <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 8 }}>
@@ -492,9 +442,27 @@ export default function ControlPanel({ controls, onChange }: {
                   </div>
 
                   {colorTab !== "gradient" && (
-                    <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            colorTab === "basic"
+                              ? setBasicSwatchesShown(generateBasicSwatches())
+                              : setNeonSwatchesShown(generateNeonSwatches())
+                          }
+                          style={{
+                            fontFamily: monoFont, fontSize: 8, letterSpacing: "0.1em",
+                            textTransform: "uppercase", padding: "4px 10px", borderRadius: 4,
+                            border: "1px solid #454545", backgroundColor: "#141414",
+                            color: "#ccc", cursor: "pointer",
+                          }}
+                        >
+                          Shuffle
+                        </button>
+                      </div>
                       <SwatchGrid
-                        swatches={colorTab === "basic" ? BASIC_COLORS : NEON_COLORS}
+                        swatches={colorTab === "basic" ? basicSwatchesShown : neonSwatchesShown}
                         active={controls.color}
                         onSelect={(v) => setSolid(v)}
                       />
@@ -510,22 +478,15 @@ export default function ControlPanel({ controls, onChange }: {
 
                   {colorTab === "gradient" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
                         <button
                           type="button"
-                          className="cp-grad-shuffle"
-                          onClick={() => setGradientPresetsShown(shuffleUniqueGradientPresets())}
+                          onClick={() => setGradientPresetsShown(generateGradientPresets())}
                           style={{
-                            fontFamily: monoFont,
-                            fontSize: 8,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            padding: "4px 10px",
-                            borderRadius: 4,
-                            border: "1px solid #454545",
-                            backgroundColor: "#141414",
-                            color: "#ccc",
-                            cursor: "pointer",
+                            fontFamily: monoFont, fontSize: 8, letterSpacing: "0.1em",
+                            textTransform: "uppercase", padding: "4px 10px", borderRadius: 4,
+                            border: "1px solid #454545", backgroundColor: "#141414",
+                            color: "#ccc", cursor: "pointer",
                           }}
                         >
                           Shuffle
@@ -598,8 +559,6 @@ export default function ControlPanel({ controls, onChange }: {
                 </div>
               </CollapseSection>
 
-              <Divider />
-
           {/* ── Reset ── */}
           <button className="cp-reset"
             onClick={() => {
@@ -607,9 +566,13 @@ export default function ControlPanel({ controls, onChange }: {
               setColorTab("basic");
               setGradStop1("#00f5ff"); setHex1("#00f5ff");
               setGradStop2("#bf00ff"); setHex2("#bf00ff");
+              setBasicSwatchesShown(generateBasicSwatches());
+              setNeonSwatchesShown(generateNeonSwatches());
+              setGradientPresetsShown(generateGradientPresets());
               onChange(DEFAULT_CONTROLS);
             }}
             style={{
+              marginTop: 24,
               fontFamily: monoFont, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase",
               padding: "7px 0", backgroundColor: "transparent", border: "1px solid #3d3d3d",
               borderRadius: 4, color: "#888", cursor: "pointer", width: "100%",
@@ -618,7 +581,6 @@ export default function ControlPanel({ controls, onChange }: {
             Reset
           </button>
             </div>
-          )}
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
