@@ -42,12 +42,15 @@ html {
 .cp-collapsed-dock[data-popup-open] {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 80ms ease-out;
+  transform: scale(0.96);
+  transition:
+    opacity 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Backdrop */
 .cp-backdrop {
-  transition: opacity 200ms ease;
+  transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .cp-backdrop[data-open]   { opacity: 1; }
 .cp-backdrop[data-closed] { opacity: 0; }
@@ -55,31 +58,39 @@ html {
   .cp-backdrop[data-open] { opacity: 0; }
 }
 
-/* Panel — grows downward from top-right corner */
+/* Panel — origin-aware: grows from top-right where the dock lives */
 .cp-panel {
   overflow: hidden;
+  transform-origin: top right;
 }
 
-/* Desktop: panel anchored at top-right, hugs content */
+/* Enter: scale + opacity with custom ease-out (fast start, gentle settle) */
 .cp-panel[data-open] {
   max-height: calc(100dvh - 48px);
   opacity: 1;
+  transform: scale(1);
   transition:
-    max-height 340ms cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 180ms ease-out;
+    opacity 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    max-height 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* Exit: quicker, ease-in for natural deceleration feel */
 .cp-panel[data-closed] {
   max-height: 0px;
   opacity: 0;
+  transform: scale(0.96);
   pointer-events: none;
   transition:
-    max-height 260ms cubic-bezier(0.4, 0, 1, 1),
-    opacity 140ms ease-in;
+    opacity 120ms cubic-bezier(0.4, 0, 1, 1),
+    transform 180ms cubic-bezier(0.4, 0, 1, 1),
+    max-height 180ms cubic-bezier(0.4, 0, 1, 1);
 }
 @starting-style {
   .cp-panel[data-open] {
     max-height: 0px;
     opacity: 0;
+    transform: scale(0.96);
   }
 }
 
@@ -92,6 +103,7 @@ html {
     width: 100% !important;
     max-width: 100% !important;
     border-radius: 0 0 16px 16px;
+    transform-origin: top center;
   }
   .cp-panel[data-open] {
     max-height: calc(100dvh - 24px);
@@ -104,7 +116,7 @@ html {
 .gallery-card {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms ease;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .gallery-card:active {
   transform: scale(0.97);
@@ -155,14 +167,17 @@ html {
   max-width: calc(100vw - 32px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
   overflow: hidden;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition:
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .cp-collapsed-dock:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px) scale(1.01);
   box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06);
 }
 .cp-collapsed-dock:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+  transition: transform 80ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 @media (min-width: 640px) {
   .cp-collapsed-dock {
@@ -178,7 +193,7 @@ html {
 }
 .cp-collapsed-dock-chevron {
   color: #666;
-  transition: color 150ms ease;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .cp-collapsed-dock:hover .cp-collapsed-dock-chevron {
   color: #aaa;
@@ -200,7 +215,7 @@ html {
 .cp-collapsed-dock-expand {
   color: #666;
   margin-left: auto;
-  transition: color 150ms ease;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .cp-collapsed-dock:hover .cp-collapsed-dock-expand {
   color: #ccc;
@@ -232,12 +247,18 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .cp-panel[data-open],
   .cp-panel[data-closed] {
-    transition: opacity 120ms ease !important;
+    transition: opacity 100ms linear !important;
     max-height: none !important;
+    transform: none !important;
   }
   .cp-collapsed-dock,
   .cp-collapsed-dock:hover,
-  .cp-collapsed-dock:active {
+  .cp-collapsed-dock:active,
+  .cp-collapsed-dock[data-popup-open] {
+    transition: none !important;
+    transform: none !important;
+  }
+  .cp-section-body {
     transition: none !important;
   }
 }
@@ -266,7 +287,7 @@ html {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   text-align: left;
-  transition: color 0.15s ease;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .cp-section-head:hover {
   color: #ccc;
@@ -276,7 +297,7 @@ html {
   width: 14px;
   height: 14px;
   color: #666;
-  transition: transform 0.22s ease, color 0.15s ease;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .cp-section-head:hover .cp-section-chevron {
   color: #aaa;
@@ -287,7 +308,7 @@ html {
 .cp-section-body {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: grid-template-rows 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .cp-section-body.is-open {
   grid-template-rows: 1fr;
@@ -309,7 +330,7 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s ease;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .cp-minimize-btn:hover,
 .cp-expand-strip:hover {
@@ -365,6 +386,39 @@ html {
   flex-shrink: 0;
   border: 1px solid #444;
 }
+/* ── Staggered entrance for panel items ───────────────────────────────────────── */
+@keyframes cp-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cp-panel-stagger {
+  animation: cp-stagger-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--stagger, 0) * 40ms + 80ms);
+}
+
+.cp-panel-stagger-children > * {
+  animation: cp-stagger-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.cp-panel-stagger-children > *:nth-child(1) { animation-delay: 120ms; }
+.cp-panel-stagger-children > *:nth-child(2) { animation-delay: 160ms; }
+.cp-panel-stagger-children > *:nth-child(3) { animation-delay: 200ms; }
+.cp-panel-stagger-children > *:nth-child(4) { animation-delay: 240ms; }
+.cp-panel-stagger-children > *:nth-child(5) { animation-delay: 280ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-panel-stagger,
+  .cp-panel-stagger-children > * {
+    animation: none !important;
+  }
+}
+
 .cp-panel-body {
   min-width: 0;
 }
