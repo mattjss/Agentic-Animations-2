@@ -348,16 +348,14 @@ html {
 }
 /* ── Color picker popover (react-colorful) ─────────────────────────────────── */
 .cp-color-popover {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 200;
-  margin-top: 6px;
+  position: fixed;
+  z-index: 300;
   border-radius: 8px;
   background: #111;
   border: 1px solid #2e2e2e;
   box-shadow: 0 12px 40px rgba(0,0,0,0.7);
   padding: 10px;
+  animation: cp-stagger-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .cp-color-popover .react-colorful {
   width: 200px;

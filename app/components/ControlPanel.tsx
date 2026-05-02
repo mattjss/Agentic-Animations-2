@@ -2,6 +2,7 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { HexColorPicker } from "react-colorful";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -295,32 +296,47 @@ function PickerRow({ value, hex, onPicker, onHex, onBlur }: {
   onBlur: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (popRef.current && !popRef.current.contains(e.target as Node)) setOpen(false);
+      if (
+        popRef.current && !popRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const handleToggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 6, left: rect.left });
+    }
+    setOpen((v) => !v);
+  };
+
   return (
-    <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
         style={{ width: 24, height: 24, border: "1px solid #3d3d3d", borderRadius: 3, backgroundColor: value, cursor: "pointer", padding: 0, flexShrink: 0 }}
         aria-label="Pick color"
       />
       <input type="text" className="cp-picker-hex" value={hex} onChange={(e) => onHex(e.target.value)} onBlur={onBlur} placeholder="#ffffff"
         style={{ fontFamily: monoFont, fontSize: 10, letterSpacing: "0.06em", backgroundColor: "#111", border: "1px solid #3d3d3d", borderRadius: 3, color: "#aaa", padding: "3px 7px", width: "100%", outline: "none" }}
       />
-      {open && (
-        <div ref={popRef} className="cp-color-popover">
+      {open && createPortal(
+        <div ref={popRef} className="cp-color-popover" style={{ top: pos.top, left: pos.left }}>
           <HexColorPicker color={value} onChange={onPicker} />
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
