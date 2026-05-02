@@ -45,11 +45,13 @@ const DELAYS: Record<string, (step: number) => number[]> = {
   "wave-tb":      s => d([0,0,0, 1,1,1, 2,2,2], s),
   "wave-bt":      s => d([2,2,2, 1,1,1, 0,0,0], s),
 
-  // Row 2 — diagonal waves
+  // Row 2 — diagonal waves (TL + TR only; BL/BR replaced below)
   "diagonal-tl":  s => d([0,1,2, 1,2,3, 2,3,4], s),
   "diagonal-tr":  s => d([2,1,0, 3,2,1, 4,3,2], s),
-  "diagonal-bl":  s => d([2,3,4, 1,2,3, 0,1,2], s),
-  "diagonal-br":  s => d([4,3,2, 3,2,1, 2,1,0], s),
+  // Point-sourced V: Manhattan rings from bottom-center outward (not row waves nor ⊘ diagonals nor surge cols)
+  "apex-up":      s => d([3,2,3, 2,1,2, 1,0,1], s),
+  // Point-sourced Λ: rings from top-center outward — paired inverse geometry to apex-up
+  "apex-down":    s => d([1,0,1, 2,1,2, 3,2,3], s),
 
   // Kept
   "rain":         s => d([0,4,2, 1,5,3, 2,6,4], s),   // each column cascades top→bottom, columns stagger
@@ -58,7 +60,8 @@ const DELAYS: Record<string, (step: number) => number[]> = {
   "fade":         s => d([0,0,0, 0,0,0, 0,0,0], s),   // true unified breath — custom keyframe handles the shape
   "scatter":      s => d([0,5,2, 7,3,8, 1,6,4], s),   // pseudo-random spread
   "fill":         s => d([0,1,2, 3,4,5, 6,7,8], s),   // reading-order sequential fill
-  "bounce":       s => d([0,2,4, 5,3,1, 6,8,10], s),  // rows alternate direction: row0 L→R, row1 R→L, row2 L→R — woven reversal
+  // Columns L→R; each column lights bottom→top — upward surge, not weaving rows (reads snake-ish)
+  "surge-up":     s => d([2,5,8, 1,4,7, 0,3,6], s),
   "mirror-v":     s => d([2,1,0, 0,1,2, 2,1,0], s),   // rows mirror: outer cols fire, center last
 
   // New replacements
@@ -103,16 +106,16 @@ export const AGENT_STEPS: AgentAnim[] = [
   css("wave-tb",     "WAVE-TB",     800,  110),
   css("wave-bt",     "WAVE-BT",     800,  110),
 
-  // Keepers — diagonal waves
-  css("diagonal-tl", "DIAGONAL-TL", 900,  90),
-  css("diagonal-tr", "DIAGONAL-TR", 900,  90),
-  css("diagonal-bl", "DIAGONAL-BL", 900,  90),
-  css("diagonal-br", "DIAGONAL-BR", 900,  90),
+  // Diagonal fronts (subset) — plus apex point waves (distinct from planar waves + spirals)
+  css("diagonal-tl", "DIAGONAL-TL", 900,   90),
+  css("diagonal-tr", "DIAGONAL-TR", 900,   90),
+  css("apex-up",     "APEX-UP",     920,   95, { easing: "ease-in-out" }),
+  css("apex-down",   "APEX-DOWN",   920,   95, { easing: "ease-in-out" }),
 
   // Keepers — motion
   css("snake",       "SNAKE",       1000, 90,  { easing: "linear" }),
   css("fill",        "FILL",        1400, 80,  { easing: "ease-in-out" }),
-  css("bounce",      "BOUNCE",      1400, 70,  { easing: "ease-in-out" }),
+  css("surge-up",    "SURGE-UP",    1200, 55,  { easing: "cubic-bezier(0.33, 1, 0.68, 1)" }),
 
   // Rhythm
   css("fade",        "FADE",        2600, 0,   { easing: "ease-in", minOpacity: 0.0, maxOpacity: 1 }),
@@ -134,6 +137,28 @@ function ensureKeyframe(minOp: number, maxOp: number): string {
     @keyframes ${key} {
       0%   { opacity: ${minOp}; }
       50%  { opacity: ${maxOp}; }
+      100% { opacity: ${minOp}; }
+    }
+  `;
+  document.head.appendChild(style);
+  injectedKeyframes.add(key);
+  return key;
+}
+
+// Surge-up keyframe: main peak → dip → secondary accent → settle (pairs with bottom→top column cascade)
+function ensureSurgeUpKeyframe(minOp: number, maxOp: number): string {
+  const key = `px_surge_up_${Math.round(minOp * 100)}_${Math.round(maxOp * 100)}`;
+  if (injectedKeyframes.has(key)) return key;
+  if (typeof document === "undefined") return key;
+  const trough = minOp + (maxOp - minOp) * 0.38;
+  const rebound = minOp + (maxOp - minOp) * 0.78;
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes ${key} {
+      0%   { opacity: ${minOp}; }
+      20%  { opacity: ${maxOp}; }
+      38%  { opacity: ${trough}; }
+      55%  { opacity: ${rebound}; }
       100% { opacity: ${minOp}; }
     }
   `;
@@ -183,9 +208,12 @@ function CssPixelIcon({ anim, controls }: { anim: CssAnim; controls: Controls })
   const [keyframe, setKeyframe] = useState("");
 
   useEffect(() => {
-    const kf = anim.id === "fade"
-      ? ensureFadeKeyframe(minOp, maxOp)
-      : ensureKeyframe(minOp, maxOp);
+    const kf =
+      anim.id === "fade"
+        ? ensureFadeKeyframe(minOp, maxOp)
+        : anim.id === "surge-up"
+          ? ensureSurgeUpKeyframe(minOp, maxOp)
+          : ensureKeyframe(minOp, maxOp);
     setKeyframe(kf);
   }, [anim.id, maxOp]);
 
@@ -313,6 +341,24 @@ export function generateSnippet(anim: AgentAnim, controls: Controls): string {
     ? `box-shadow: 0 0 ${controls.glow}px ${Math.round(controls.glow * 0.6)}px ${color};`
     : "";
 
+  const trough = minOp + (maxOp - minOp) * 0.38;
+  const reboundPeak = minOp + (maxOp - minOp) * 0.78;
+
+  const keyframesCss =
+    anim.id === "surge-up"
+      ? `  @keyframes loader-pulse-${anim.id} {
+    0%   { opacity: ${minOp}; }
+    20%  { opacity: ${maxOp}; }
+    38%  { opacity: ${trough}; }
+    55%  { opacity: ${reboundPeak}; }
+    100% { opacity: ${minOp}; }
+  }`
+      : `  @keyframes loader-pulse-${anim.id} {
+    0%   { opacity: ${minOp}; }
+    50%  { opacity: ${maxOp}; }
+    100% { opacity: ${minOp}; }
+  }`;
+
   const cells = anim.delays
     .map((delay, i) =>
       `  <div class="cell" style="animation-delay:${delay}ms"></div>`
@@ -336,11 +382,7 @@ export function generateSnippet(anim: AgentAnim, controls: Controls): string {
     animation: loader-pulse-${anim.id} ${duration}ms ${easing} infinite;
     ${glowVal}
   }
-  @keyframes loader-pulse-${anim.id} {
-    0%   { opacity: ${minOp}; }
-    50%  { opacity: ${maxOp}; }
-    100% { opacity: ${minOp}; }
-  }
+${keyframesCss}
 </style>
 <div class="loader-${anim.id}">
 ${cells}
