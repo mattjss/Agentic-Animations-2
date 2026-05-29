@@ -2,11 +2,13 @@ import type { NextConfig } from "next";
 import { createRequire } from "module";
 import path from "path";
 
-/** Absolute path to this app (directory of package.json), not a parent folder with an extra lockfile. */
 const require = createRequire(import.meta.url);
 const ROOT = path.dirname(require.resolve("./package.json"));
 
 const nextConfig: NextConfig = {
+  output: "export",
+  basePath: "/Agentic-Animations-2",
+  images: { unoptimized: true },
   outputFileTracingRoot: ROOT,
   turbopack: {
     root: ROOT,
