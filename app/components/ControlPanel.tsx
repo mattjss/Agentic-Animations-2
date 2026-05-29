@@ -4,6 +4,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { HexColorPicker } from "react-colorful";
+import { sounds } from "./sounds";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type ColorMode = "solid" | "gradient";
@@ -260,7 +261,7 @@ function SwatchGrid({ swatches, active, onSelect }: {
   return (
     <div className="cp-swatch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
       {swatches.map((s) => (
-        <button key={s.value} className="cp-swatch" onClick={() => onSelect(s.value)} title={s.label}
+        <button key={s.value} className="cp-swatch" onClick={() => { sounds.swatchPick(); onSelect(s.value) }} title={s.label}
           style={{
             width: "100%", aspectRatio: "1", borderRadius: 3,
             background: s.value,
@@ -276,7 +277,7 @@ function SwatchGrid({ swatches, active, onSelect }: {
 // ─── Tab button ───────────────────────────────────────────────────────────────
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
   return (
-    <button className="cp-tab-btn" onClick={onClick}
+    <button className="cp-tab-btn" onClick={() => { if (!active) sounds.tabSwitch(); onClick() }}
       style={{
         fontFamily: monoFont, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase",
         padding: "3px 9px", borderRadius: 3, border: "none",
@@ -397,6 +398,7 @@ export default function ControlPanel({ controls, onChange }: {
   return (
     <Dialog.Root
       onOpenChange={(open) => {
+        if (open) sounds.panelOpen(); else sounds.panelClose();
         if (open && colorTab === "gradient") setGradientPresetsShown(generateGradientPresets());
       }}
     >
@@ -447,7 +449,7 @@ export default function ControlPanel({ controls, onChange }: {
           </div>
 
           <div className="cp-panel-body">
-              <CollapseSection title="Color" expanded={openColor} onToggle={() => setOpenColor((v) => !v)}>
+              <CollapseSection title="Color" expanded={openColor} onToggle={() => { sounds.sectionToggle(); setOpenColor((v) => !v) }}>
                 <div style={{ marginBottom: 4 }}>
                   <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 8 }}>
                     <div style={{ display: "flex", gap: 1 }}>
@@ -462,11 +464,12 @@ export default function ControlPanel({ controls, onChange }: {
                       <div style={{ display: "flex", justifyContent: "flex-end" }}>
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            sounds.shuffle()
                             colorTab === "basic"
                               ? setBasicSwatchesShown(generateBasicSwatches())
                               : setNeonSwatchesShown(generateNeonSwatches())
-                          }
+                          }}
                           style={{
                             fontFamily: monoFont, fontSize: 8, letterSpacing: "0.1em",
                             textTransform: "uppercase", padding: "4px 10px", borderRadius: 4,
@@ -497,7 +500,7 @@ export default function ControlPanel({ controls, onChange }: {
                       <div style={{ display: "flex", justifyContent: "flex-end" }}>
                         <button
                           type="button"
-                          onClick={() => setGradientPresetsShown(generateGradientPresets())}
+                          onClick={() => { sounds.shuffle(); setGradientPresetsShown(generateGradientPresets()) }}
                           style={{
                             fontFamily: monoFont, fontSize: 8, letterSpacing: "0.1em",
                             textTransform: "uppercase", padding: "4px 10px", borderRadius: 4,
@@ -510,7 +513,7 @@ export default function ControlPanel({ controls, onChange }: {
                       </div>
                       <div className="cp-grad-grid" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
                         {gradientPresetsShown.map((g) => (
-                          <button key={g.value} type="button" onClick={() => applyPreset(g)}
+                          <button key={g.value} type="button" onClick={() => { sounds.swatchPick(); applyPreset(g) }}
                             title={g.label}
                             style={{
                               width: "100%", aspectRatio: "1", borderRadius: 3,
@@ -542,19 +545,19 @@ export default function ControlPanel({ controls, onChange }: {
                 </div>
               </CollapseSection>
 
-              <CollapseSection title="Motion" expanded={openMotion} onToggle={() => setOpenMotion((v) => !v)}>
+              <CollapseSection title="Motion" expanded={openMotion} onToggle={() => { sounds.sectionToggle(); setOpenMotion((v) => !v) }}>
                 <SliderRow label="Speed" value={controls.speed} min={0.25} max={3} step={0.05}
-                  display={`${controls.speed.toFixed(2)}×`} onChange={(v) => set("speed", v)} />
+                  display={`${controls.speed.toFixed(2)}×`} onChange={(v) => { sounds.sliderTick(); set("speed", v) }} />
                 <SliderRow label="Glow" value={controls.glow} min={0} max={3} step={0.1}
-                  display={controls.glow === 0 ? "off" : `${controls.glow}px`} onChange={(v) => set("glow", v)} />
+                  display={controls.glow === 0 ? "off" : `${controls.glow}px`} onChange={(v) => { sounds.sliderTick(); set("glow", v) }} />
                 <SliderRow label="Opacity" value={controls.opacity} min={0.5} max={1} step={0.1}
-                  display={`${Math.round(controls.opacity * 100)}%`} onChange={(v) => set("opacity", v)} />
+                  display={`${Math.round(controls.opacity * 100)}%`} onChange={(v) => { sounds.sliderTick(); set("opacity", v) }} />
               </CollapseSection>
 
-              <CollapseSection title="Cell size" expanded={openSize} onToggle={() => setOpenSize((v) => !v)}>
+              <CollapseSection title="Cell size" expanded={openSize} onToggle={() => { sounds.sectionToggle(); setOpenSize((v) => !v) }}>
                 <div style={{ display: "flex", gap: 5, marginBottom: 4 }}>
                   {CELL_OPTIONS.map((opt) => (
-                    <button key={opt.value} className="cp-cell-btn" onClick={() => set("cellSize", opt.value)}
+                    <button key={opt.value} className="cp-cell-btn" onClick={() => { sounds.cellSelect(); set("cellSize", opt.value) }}
                       style={{
                         fontFamily: monoFont, flex: 1,
                         display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
@@ -578,6 +581,7 @@ export default function ControlPanel({ controls, onChange }: {
           {/* ── Reset ── */}
           <button className="cp-reset"
             onClick={() => {
+              sounds.reset();
               setHexInput(DEFAULT_CONTROLS.color);
               setColorTab("basic");
               setGradStop1("#00f5ff"); setHex1("#00f5ff");
