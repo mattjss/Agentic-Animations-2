@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { AGENT_STEPS, PixelIcon, generateSnippet, type AgentAnim } from "./AgenticLoader";
 import ControlPanel, { Controls, DEFAULT_CONTROLS } from "./ControlPanel";
+import { sounds } from "./sounds";
 
 const monoFont = "var(--font-jetbrains-mono), 'JetBrains Mono', monospace";
 const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -38,6 +39,7 @@ function AnimCard({ step, controls }: { step: AgentAnim; controls: Controls }) {
 
   const handleDownload = () => {
     if (copyState === "copied") return;
+    sounds.downloadClick();
     const snippet = generateSnippet(step, controls);
     const doc = `<!DOCTYPE html>
 <html lang="en">
@@ -57,6 +59,7 @@ ${snippet}
     a.download = `${step.id}-loader.html`;
     a.click();
     URL.revokeObjectURL(url);
+    sounds.downloadDone();
     setCopyState("copied");
     setTimeout(() => setCopyState("idle"), 1800);
   };
@@ -66,7 +69,7 @@ ${snippet}
   return (
     <div
       className="gallery-card"
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => { sounds.cardHover(); setHovered(true) }}
       onMouseLeave={() => setHovered(false)}
       onClick={handleDownload}
       style={{
